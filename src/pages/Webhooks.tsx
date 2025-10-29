@@ -253,7 +253,7 @@ export default function Webhooks() {
                     value={configs.n8n_qr_code_generator}
                     onChange={(e) => setConfigs({ ...configs, n8n_qr_code_generator: e.target.value })}
                     placeholder="https://seu-n8n.com/webhook/qr-code"
-                    className="w-full" {/* Adicionado w-full */}
+                    className="w-full" /* Adicionado w-full */
                   />
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto"> {/* Botão ocupa largura total em mobile */}
@@ -318,7 +318,7 @@ export default function Webhooks() {
                     value={configs.n8n_message_sender}
                     onChange={(e) => setConfigs({ ...configs, n8n_message_sender: e.target.value })}
                     placeholder="https://seu-n8n.com/webhook/send-message"
-                    className="w-full" {/* Adicionado w-full */}
+                    className="w-full" /* Adicionado w-full */
                   />
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto"> {/* Botão ocupa largura total em mobile */}
@@ -385,7 +385,7 @@ export default function Webhooks() {
                     value={configs.n8n_evolution_logout}
                     onChange={(e) => setConfigs({ ...configs, n8n_evolution_logout: e.target.value })}
                     placeholder="https://seu-n8n.com/webhook/logout"
-                    className="w-full" {/* Adicionado w-full */}
+                    className="w-full" /* Adicionado w-full */
                   />
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto"> {/* Botão ocupa largura total em mobile */}
