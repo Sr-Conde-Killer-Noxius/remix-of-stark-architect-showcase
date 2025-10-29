@@ -22,9 +22,9 @@ serve(async (req) => {
       }
     });
 
-    const { userId, email, fullName, phone, password, planId, expiryDate, status, role } = await req.json();
+    const { userId, email, fullName, phone, password, planId, expiryDate, status, role, creditExpiryDate } = await req.json();
 
-    console.log('Updating reseller user:', { userId, email, fullName, phone, role });
+    console.log('Updating reseller user:', { userId, email, fullName, phone, role, creditExpiryDate });
 
     if (!userId) {
       throw new Error('User ID is required');
@@ -145,6 +145,7 @@ serve(async (req) => {
     if (planId !== undefined) profileUpdate.plan_id = planId;
     if (expiryDate !== undefined) profileUpdate.expiry_date = expiryDate;
     if (status !== undefined) profileUpdate.status = status;
+    if (creditExpiryDate !== undefined) profileUpdate.credit_expiry_date = creditExpiryDate; // Adicionado para atualizar o vencimento do crédito
 
     if (Object.keys(profileUpdate).length > 0) {
       const { error: profileError } = await supabaseAdmin

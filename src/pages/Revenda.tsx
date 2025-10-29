@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield } from "lucide-react";
+import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield, CalendarDays } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { Calendar } from "@/components/ui/calendar"; // Importar Calendar
+import { format } from "date-fns"; // Importar format
 
 const resellerSchema = z.object({
   fullName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
@@ -132,6 +134,11 @@ export default function Revenda() {
   const [changingCreator, setChangingCreator] = useState(false);
   const [selectedResellerForCreatorChange, setSelectedResellerForCreatorChange] = useState<ResellerWithRole | null>(null);
   const { toast } = useToast();
+
+  // Estados para o novo diálogo de vencimento de crédito
+  const [creditExpiryDialogOpen, setCreditExpiryDialogOpen] = useState(false);
+  const [selectedResellerForCreditExpiry, setSelectedResellerForCreditExpiry] = useState<ResellerWithRole | null>(null);
+  const [newCreditExpiryDate, setNewCreditExpiryDate] = useState<Date | undefined>(undefined);
 
   const form = useForm<ResellerFormData>({
     resolver: zodResolver(resellerSchema),
@@ -413,6 +420,9 @@ export default function Revenda() {
             planId: data.planId || undefined,
             expiryDate: data.expiryDate || undefined,
           },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
         }
       );
 
@@ -460,6 +470,9 @@ export default function Revenda() {
           body: {
             userId: selectedReseller.user_id,
           },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
         }
       );
 
@@ -591,6 +604,9 @@ export default function Revenda() {
             userId,
             status,
           },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
         }
       );
 
@@ -693,6 +709,9 @@ export default function Revenda() {
             userId,
             role: newRole,
           },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
         }
       );
 
@@ -723,6 +742,70 @@ export default function Revenda() {
       });
     } finally {
       setUpdatingRole(false);
+    }
+  };
+
+  // Funções para o novo diálogo de vencimento de crédito
+  const handleOpenCreditExpiryDialog = (reseller: ResellerWithRole) => {
+    setSelectedResellerForCreditExpiry(reseller);
+    setNewCreditExpiryDate(reseller.credit_expiry_date ? new Date(reseller.credit_expiry_date) : undefined);
+    setCreditExpiryDialogOpen(true);
+  };
+
+  const onUpdateCreditExpiry = async () => {
+    if (!selectedResellerForCreditExpiry || !newCreditExpiryDate) {
+      toast({
+        title: "Data inválida",
+        description: "Por favor, selecione uma data de vencimento válida.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        throw new Error("Não autenticado");
+      }
+
+      const { data: result, error } = await supabase.functions.invoke(
+        "update-reseller-user",
+        {
+          body: {
+            userId: selectedResellerForCreditExpiry.user_id,
+            creditExpiryDate: newCreditExpiryDate.toISOString(),
+          },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
+        }
+      );
+
+      if (error) throw error;
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Vencimento do Crédito atualizado!",
+        description: `O vencimento do crédito para ${selectedResellerForCreditExpiry.full_name} foi atualizado para ${format(newCreditExpiryDate, "dd/MM/yyyy")}.`,
+      });
+
+      setCreditExpiryDialogOpen(false);
+      setSelectedResellerForCreditExpiry(null);
+      setNewCreditExpiryDate(undefined);
+      loadResellers(); // Recarregar dados para refletir a mudança
+    } catch (error: any) {
+      console.error("Error updating credit expiry date:", error);
+      toast({
+        title: "Erro ao atualizar vencimento do crédito",
+        description: error.message || "Ocorreu um erro ao atualizar o vencimento do crédito",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -928,6 +1011,12 @@ export default function Revenda() {
                                 </DropdownMenuItem>
                               </DropdownMenuSubContent>
                             </DropdownMenuSub>
+                            {userRole === 'admin' && (
+                              <DropdownMenuItem onClick={() => handleOpenCreditExpiryDialog(reseller)}>
+                                <CalendarDays className="mr-2 h-4 w-4" />
+                                Alterar Vencimento do Crédito
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => handleRenewCredit(reseller)}
@@ -1249,6 +1338,55 @@ export default function Revenda() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Alterar Vencimento do Crédito Dialog (Admin only) */}
+      <Dialog open={creditExpiryDialogOpen} onOpenChange={setCreditExpiryDialogOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Alterar Vencimento do Crédito</DialogTitle>
+            <DialogDescription>
+              Selecione a nova data de vencimento do crédito para{" "}
+              <strong>{selectedResellerForCreditExpiry?.full_name}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-col items-center space-y-4">
+              <Label htmlFor="newCreditExpiryDate" className="text-center">
+                Nova Data de Vencimento
+              </Label>
+              <Calendar
+                mode="single"
+                selected={newCreditExpiryDate}
+                onSelect={setNewCreditExpiryDate}
+                initialFocus
+              />
+              {newCreditExpiryDate && (
+                <p className="text-sm text-muted-foreground">
+                  Data selecionada: {format(newCreditExpiryDate, "dd/MM/yyyy")}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreditExpiryDialogOpen(false)}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={onUpdateCreditExpiry}
+              disabled={submitting || !newCreditExpiryDate}
+              className="w-full sm:w-auto"
+            >
+              {submitting ? "Salvando..." : "Salvar Data"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Notification Dialog */}
       {selectedReseller && (
