@@ -98,7 +98,7 @@ export default function Carteira() {
           .not('user_id', 'eq', user.id) // Exclude self
           .order('full_name', { ascending: true });
       } else if (userRole === 'master') {
-        // Master can manage credits for resellers they created
+        // Master can manage credits for masters and resellers they created
         query = supabase
           .from('profiles')
           .select('user_id, full_name, user_roles(role)')
@@ -116,9 +116,11 @@ export default function Carteira() {
       const filteredUsers: ManagedUser[] = [];
       for (const profile of profiles || []) {
         const role = (profile.user_roles as any)?.role;
+        // For admin, show only masters
+        // For master, show both masters and resellers they created
         if (userRole === 'admin' && role === 'master') {
           filteredUsers.push({ user_id: profile.user_id, full_name: profile.full_name || "N/A", role });
-        } else if (userRole === 'master' && role === 'reseller') {
+        } else if (userRole === 'master' && (role === 'master' || role === 'reseller')) {
           filteredUsers.push({ user_id: profile.user_id, full_name: profile.full_name || "N/A", role });
         }
       }
@@ -141,20 +143,28 @@ export default function Carteira() {
         .limit(100);
 
       if (userRole === 'master') {
-        // For master, fetch IDs of resellers they created
-        const { data: createdResellers, error: resellersError } = await supabase
+        // For master, fetch IDs of all users (masters and resellers) they created
+        const { data: createdUsers, error: createdUsersError } = await supabase
           .from('profiles')
           .select('user_id')
           .eq('created_by', user.id);
 
-        if (resellersError) throw resellersError;
-        const createdResellerIds = createdResellers?.map(p => p.user_id) || [];
+        if (createdUsersError) throw createdUsersError;
+        const createdUserIds = createdUsers?.map(p => p.user_id) || [];
 
         // Master sees:
         // 1. Their own credit movements (user_id = master.id)
-        // 2. Credit movements for resellers they created (user_id in createdResellerIds)
-        // 3. Credit movements they performed on their resellers (performed_by = master.id AND related_user_id in createdResellerIds)
-        query = query.or(`user_id.eq.${user.id},user_id.in.(${createdResellerIds.join(',')}),and(performed_by.eq.${user.id},related_user_id.in.(${createdResellerIds.join(',')}))`);
+        // 2. Credit movements for users they created (user_id in createdUserIds)
+        // 3. Credit movements they performed on users they created (performed_by = master.id AND related_user_id in createdUserIds)
+        const filterConditions = [
+          `user_id.eq.${user.id}`,
+        ];
+        if (createdUserIds.length > 0) {
+          filterConditions.push(`user_id.in.(${createdUserIds.join(',')})`);
+          filterConditions.push(`and(performed_by.eq.${user.id},related_user_id.in.(${createdUserIds.join(',')}))`);
+        }
+        
+        query = query.or(filterConditions.join(','));
       }
 
       const { data, error } = await query;
@@ -246,14 +256,18 @@ export default function Carteira() {
   const handleAddCredits = () => handleManageCredits(selectedTargetUserId, parseInt(creditAmount));
   const handleRemoveCredits = () => handleManageCredits(selectedRemoveTargetUserId, -parseInt(removeCreditAmount));
 
+  // Filter transactions for the "Histórico de Gerenciamento de Créditos" table
   const managedCreditTransactions = transactions.filter(t => 
     (userRole === 'admin' && t.transaction_type === 'credit_added' && t.performed_by) || // Admin sees all added by admin
-    (userRole === 'master' && t.performed_by === user?.id && t.related_user_id) // Master sees what they performed on their resellers
+    (userRole === 'master' && t.performed_by === user?.id && t.related_user_id) // Master sees what they performed on their created users
   );
 
+  // Filter transactions for the "Créditos Adquiridos" table (only for Masters)
   const creditedTransactions = transactions.filter(t => 
     t.transaction_type === 'credit_added' && t.user_id === user?.id
   );
+  
+  // Filter transactions for the "Créditos Gastos" table
   const spentTransactions = transactions.filter(t => 
     t.transaction_type === 'credit_spent' && t.user_id === user?.id
   );
@@ -292,7 +306,7 @@ export default function Carteira() {
                   className="w-full sm:w-auto"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Créditos a {userRole === 'admin' ? 'Master' : 'Revendedor'}
+                  Adicionar Créditos a {userRole === 'admin' ? 'Master' : 'Usuário Criado'}
                 </Button>
                 <Button 
                   onClick={() => setRemoveCreditsDialogOpen(true)}
@@ -300,7 +314,7 @@ export default function Carteira() {
                   className="w-full sm:w-auto"
                 >
                   <Coins className="mr-2 h-4 w-4" />
-                  Remover Créditos de {userRole === 'admin' ? 'Master' : 'Revendedor'}
+                  Remover Créditos de {userRole === 'admin' ? 'Master' : 'Usuário Criado'}
                 </Button>
               </div>
             )}
@@ -525,16 +539,16 @@ export default function Carteira() {
           <DialogHeader>
             <DialogTitle>Adicionar Créditos</DialogTitle>
             <DialogDescription>
-              Adicione créditos a um usuário {userRole === 'admin' ? 'master' : 'revendedor'} específico
+              Adicione créditos a um usuário {userRole === 'admin' ? 'master' : 'criado'} específico
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="targetUser">Usuário {userRole === 'admin' ? 'Master' : 'Revendedor'}</Label>
+              <Label htmlFor="targetUser">Usuário {userRole === 'admin' ? 'Master' : 'Criado'}</Label>
               <Select value={selectedTargetUserId} onValueChange={setSelectedTargetUserId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={`Selecione um ${userRole === 'admin' ? 'master' : 'revendedor'}`} />
+                  <SelectValue placeholder={`Selecione um ${userRole === 'admin' ? 'master' : 'usuário criado'}`} />
                 </SelectTrigger>
                 <SelectContent>
                   {managedUsers.map((managedUser) => (
@@ -583,16 +597,16 @@ export default function Carteira() {
           <DialogHeader>
             <DialogTitle>Remover Créditos</DialogTitle>
             <DialogDescription>
-              Remova créditos de um usuário {userRole === 'admin' ? 'master' : 'revendedor'} específico
+              Remova créditos de um usuário {userRole === 'admin' ? 'master' : 'criado'} específico
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="remove-targetUser">Usuário {userRole === 'admin' ? 'Master' : 'Revendedor'}</Label>
+              <Label htmlFor="remove-targetUser">Usuário {userRole === 'admin' ? 'Master' : 'Criado'}</Label>
               <Select value={selectedRemoveTargetUserId} onValueChange={setSelectedRemoveTargetUserId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={`Selecione um ${userRole === 'admin' ? 'master' : 'revendedor'}`} />
+                  <SelectValue placeholder={`Selecione um ${userRole === 'admin' ? 'master' : 'usuário criado'}`} />
                 </SelectTrigger>
                 <SelectContent>
                   {managedUsers.map((managedUser) => (
