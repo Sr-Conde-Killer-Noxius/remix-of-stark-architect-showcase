@@ -220,6 +220,32 @@ serve(async (req) => {
           console.error(`Error during webhook preparation for user ${userId}:`, webhookError.message);
         }
       }
+
+      // If creditExpiryDate was updated, trigger check-expired-credits function
+      if (creditExpiryDate !== undefined) {
+        console.log(`creditExpiryDate updated for user ${userId}. Invoking check-expired-credits...`);
+        // Invoke check-expired-credits asynchronously
+        (async () => {
+          try {
+            const { data: checkResult, error: checkError } = await supabaseAdmin.functions.invoke(
+              "check-expired-credits",
+              {
+                // No specific body needed, as it scans all profiles
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}` // Use service key for internal function call
+                }
+              }
+            );
+            if (checkError) {
+              console.error('Error invoking check-expired-credits:', checkError);
+            } else {
+              console.log('check-expired-credits invoked successfully:', checkResult);
+            }
+          } catch (invokeError) {
+            console.error('Unexpected error during check-expired-credits invocation:', invokeError);
+          }
+        })();
+      }
     }
 
     console.log('User updated successfully');
