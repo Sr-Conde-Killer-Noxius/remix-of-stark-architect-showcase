@@ -381,8 +381,8 @@ export default function Templates() {
                 id="nome"
                 {...form.register("nome")}
                 placeholder="Ex: Lembrete de Vencimento"
-                className="w-full" {/* Adicionado w-full */}
-              />
+                className="w-full"
+              /> {/* Adicionado w-full */}
               {form.formState.errors.nome && (
                 <p className="text-sm text-destructive">
                   {form.formState.errors.nome.message}
@@ -412,7 +412,7 @@ export default function Templates() {
                 id="assunto"
                 {...form.register("assunto")}
                 placeholder="Ex: Lembrete: Seu pagamento vence em breve"
-                className="w-full" {/* Adicionado w-full */}
+                className="w-full" /* Adicionado w-full */
               />
               {form.formState.errors.assunto && (
                 <p className="text-sm text-destructive">
@@ -428,7 +428,7 @@ export default function Templates() {
                 {...form.register("corpo")}
                 placeholder="Olá {{customer_name}}, este é um lembrete de que seu plano {{plan_name}} vence em {{due_date}}..."
                 rows={6}
-                className="w-full" {/* Adicionado w-full */}
+                className="w-full" /* Adicionado w-full */
               />
               {form.formState.errors.corpo && (
                 <p className="text-sm text-destructive">
@@ -472,7 +472,7 @@ export default function Templates() {
                 id="edit-nome"
                 {...editForm.register("nome")}
                 placeholder="Ex: Lembrete de Vencimento"
-                className="w-full" {/* Adicionado w-full */}
+                className="w-full" /* Adicionado w-full */
               />
               {editForm.formState.errors.nome && (
                 <p className="text-sm text-destructive">
@@ -503,7 +503,7 @@ export default function Templates() {
                 id="edit-assunto"
                 {...editForm.register("assunto")}
                 placeholder="Ex: Lembrete: Seu pagamento vence em breve"
-                className="w-full" {/* Adicionado w-full */}
+                className="w-full" /* Adicionado w-full */
               />
               {editForm.formState.errors.assunto && (
                 <p className="text-sm text-destructive">
@@ -519,7 +519,7 @@ export default function Templates() {
                 {...editForm.register("corpo")}
                 placeholder="Olá {{customer_name}}, este é um lembrete de que seu plano {{plan_name}} vence em {{due_date}}..."
                 rows={6}
-                className="w-full" {/* Adicionado w-full */}
+                className="w-full" /* Adicionado w-full */
               />
               {editForm.formState.errors.corpo && (
                 <p className="text-sm text-destructive">
