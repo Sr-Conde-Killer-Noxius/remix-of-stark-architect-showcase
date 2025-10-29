@@ -574,7 +574,7 @@ export default function Carteira() {
 
       {/* Add Credits Dialog (Admin only) */}
       <Dialog open={addCreditsDialogOpen} onOpenChange={setAddCreditsDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Adicionar Créditos</DialogTitle>
             <DialogDescription>
@@ -586,7 +586,7 @@ export default function Carteira() {
             <div className="space-y-2">
               <Label htmlFor="master">Usuário Master</Label>
               <Select value={selectedMasterId} onValueChange={setSelectedMasterId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full"> {/* Adicionado w-full */}
                   <SelectValue placeholder="Selecione um master" />
                 </SelectTrigger>
                 <SelectContent>
@@ -608,6 +608,7 @@ export default function Carteira() {
                 value={creditAmount}
                 onChange={(e) => setCreditAmount(e.target.value)}
                 placeholder="Ex: 10"
+                className="w-full" {/* Adicionado w-full */}
               />
             </div>
           </div>
@@ -631,7 +632,7 @@ export default function Carteira() {
 
       {/* Remove Credits Dialog (Admin only) */}
       <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Remover Créditos</DialogTitle>
             <DialogDescription>
@@ -643,7 +644,7 @@ export default function Carteira() {
             <div className="space-y-2">
               <Label htmlFor="remove-master">Usuário Master</Label>
               <Select value={selectedRemoveMasterId} onValueChange={setSelectedRemoveMasterId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full"> {/* Adicionado w-full */}
                   <SelectValue placeholder="Selecione um master" />
                 </SelectTrigger>
                 <SelectContent>
@@ -665,6 +666,7 @@ export default function Carteira() {
                 value={removeCreditAmount}
                 onChange={(e) => setRemoveCreditAmount(e.target.value)}
                 placeholder="Ex: 5"
+                className="w-full" {/* Adicionado w-full */}
               />
             </div>
           </div>

@@ -25,7 +25,7 @@ export function JsonViewDialog({ data, triggerLabel = "Ver payload", title = "Pa
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[90vw] sm:max-w-2xl">
+      <DialogContent className="max-w-[90vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

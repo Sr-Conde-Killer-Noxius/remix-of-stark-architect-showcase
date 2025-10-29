@@ -328,7 +328,7 @@ export default function Planos() {
 
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Novo Plano</DialogTitle>
             <DialogDescription>
@@ -343,6 +343,7 @@ export default function Planos() {
                 id="nome"
                 {...form.register("nome")}
                 placeholder="Ex: Básico, Intermediário, Premium"
+                className="w-full" {/* Adicionado w-full */}
               />
               {form.formState.errors.nome && (
                 <p className="text-sm text-destructive">
@@ -359,6 +360,7 @@ export default function Planos() {
                 step="0.01"
                 {...form.register("valor")}
                 placeholder="0.00"
+                className="w-full" {/* Adicionado w-full */}
               />
               {form.formState.errors.valor && (
                 <p className="text-sm text-destructive">
@@ -387,7 +389,7 @@ export default function Planos() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Editar Plano</DialogTitle>
             <DialogDescription>
@@ -402,6 +404,7 @@ export default function Planos() {
                 id="edit-nome"
                 {...editForm.register("nome")}
                 placeholder="Ex: Básico, Intermediário, Premium"
+                className="w-full" {/* Adicionado w-full */}
               />
               {editForm.formState.errors.nome && (
                 <p className="text-sm text-destructive">
@@ -418,6 +421,7 @@ export default function Planos() {
                 step="0.01"
                 {...editForm.register("valor")}
                 placeholder="0.00"
+                className="w-full" {/* Adicionado w-full */}
               />
               {editForm.formState.errors.valor && (
                 <p className="text-sm text-destructive">
@@ -446,7 +450,7 @@ export default function Planos() {
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>

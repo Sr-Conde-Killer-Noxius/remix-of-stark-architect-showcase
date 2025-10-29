@@ -190,7 +190,7 @@ export function NotificationDialog({ open, onOpenChange, recipient }: Notificati
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[90vw] sm:max-w-2xl">
+      <DialogContent className="max-w-[90vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
         <DialogHeader>
           <DialogTitle>Enviar Notificação</DialogTitle>
           <DialogDescription>
@@ -202,7 +202,7 @@ export function NotificationDialog({ open, onOpenChange, recipient }: Notificati
           <div className="space-y-2">
             <Label>Template</Label>
             <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full"> {/* Adicionado w-full */}
                 <SelectValue placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>

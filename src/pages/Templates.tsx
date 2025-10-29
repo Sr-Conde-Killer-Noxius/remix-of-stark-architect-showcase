@@ -366,7 +366,7 @@ export default function Templates() {
 
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[600px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Novo Template</DialogTitle>
             <DialogDescription>
@@ -381,6 +381,7 @@ export default function Templates() {
                 id="nome"
                 {...form.register("nome")}
                 placeholder="Ex: Lembrete de Vencimento"
+                className="w-full" {/* Adicionado w-full */}
               />
               {form.formState.errors.nome && (
                 <p className="text-sm text-destructive">
@@ -395,7 +396,7 @@ export default function Templates() {
                 onValueChange={(value) => form.setValue("tipo", value as "global" | "pessoal")}
                 defaultValue="global"
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full"> {/* Adicionado w-full */}
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -411,6 +412,7 @@ export default function Templates() {
                 id="assunto"
                 {...form.register("assunto")}
                 placeholder="Ex: Lembrete: Seu pagamento vence em breve"
+                className="w-full" {/* Adicionado w-full */}
               />
               {form.formState.errors.assunto && (
                 <p className="text-sm text-destructive">
@@ -426,6 +428,7 @@ export default function Templates() {
                 {...form.register("corpo")}
                 placeholder="Olá {{customer_name}}, este é um lembrete de que seu plano {{plan_name}} vence em {{due_date}}..."
                 rows={6}
+                className="w-full" {/* Adicionado w-full */}
               />
               {form.formState.errors.corpo && (
                 <p className="text-sm text-destructive">
@@ -454,7 +457,7 @@ export default function Templates() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[600px]"> {/* Adicionado max-w para dialogs */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
             <DialogTitle>Editar Template</DialogTitle>
             <DialogDescription>
@@ -469,6 +472,7 @@ export default function Templates() {
                 id="edit-nome"
                 {...editForm.register("nome")}
                 placeholder="Ex: Lembrete de Vencimento"
+                className="w-full" {/* Adicionado w-full */}
               />
               {editForm.formState.errors.nome && (
                 <p className="text-sm text-destructive">
@@ -483,7 +487,7 @@ export default function Templates() {
                 onValueChange={(value) => editForm.setValue("tipo", value as "global" | "pessoal")}
                 value={editForm.watch("tipo")}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full"> {/* Adicionado w-full */}
                   <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,6 +503,7 @@ export default function Templates() {
                 id="edit-assunto"
                 {...editForm.register("assunto")}
                 placeholder="Ex: Lembrete: Seu pagamento vence em breve"
+                className="w-full" {/* Adicionado w-full */}
               />
               {editForm.formState.errors.assunto && (
                 <p className="text-sm text-destructive">
@@ -514,6 +519,7 @@ export default function Templates() {
                 {...editForm.register("corpo")}
                 placeholder="Olá {{customer_name}}, este é um lembrete de que seu plano {{plan_name}} vence em {{due_date}}..."
                 rows={6}
+                className="w-full" {/* Adicionado w-full */}
               />
               {editForm.formState.errors.corpo && (
                 <p className="text-sm text-destructive">
@@ -542,7 +548,7 @@ export default function Templates() {
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px]"> {/* Adicionado max-w para dialogs */}
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
