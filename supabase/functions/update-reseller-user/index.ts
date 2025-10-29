@@ -30,51 +30,65 @@ serve(async (req) => {
       throw new Error('User ID is required');
     }
 
-    // Check if the requesting user is a master
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
-    if (!supabaseAnonKey) {
-      throw new Error('Missing SUPABASE_ANON_KEY');
-    }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      },
-      global: {
-        headers: {
-          Authorization: authHeader
-        }
+    let isServiceRoleCall = false;
+    let requestingUser: { id: string } | null = null;
+    let requestingRole: 'admin' | 'master' | 'reseller' | null = null;
+
+    // Check if the request is from an internal service using the service role key
+    if (token === supabaseServiceKey) {
+      isServiceRoleCall = true;
+      requestingUser = { id: 'supabase_service_role_internal_user' }; // A dummy ID for internal calls
+      requestingRole = 'admin'; // Service role has admin privileges
+      console.log('Request authorized as internal service role.');
+    } else {
+      // Original logic for user-based authentication
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+      if (!supabaseAnonKey) {
+        throw new Error('Missing SUPABASE_ANON_KEY');
       }
-    });
 
-    const { data: { user: requestingUser } } = await supabaseClient.auth.getUser(token);
-    
-    if (!requestingUser) {
-      throw new Error('Unauthorized');
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        },
+        global: {
+          headers: {
+            Authorization: authHeader
+          }
+        }
+      });
+
+      const { data: { user: authenticatedUser } } = await supabaseClient.auth.getUser(token);
+      requestingUser = authenticatedUser;
+
+      if (!requestingUser) {
+        throw new Error('Unauthorized');
+      }
+
+      const { data: requestingRoleData } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', requestingUser.id)
+        .maybeSingle();
+
+      requestingRole = requestingRoleData?.role;
     }
 
-    // Check requesting user's role
-    const { data: requestingRoleData } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', requestingUser.id)
-      .maybeSingle();
-
-    const requestingRole = requestingRoleData?.role;
-
+    // Now, use requestingUser and requestingRole for permission checks
     if (!requestingRole || !['admin', 'master'].includes(requestingRole)) {
       throw new Error('Only admin and master users can update accounts');
     }
 
-    // For masters, verify they created this user
-    if (requestingRole === 'master') {
+    // For masters, verify they created this user. Skip this check if it's a service role call.
+    if (requestingRole === 'master' && !isServiceRoleCall) {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
         .select('created_by')
