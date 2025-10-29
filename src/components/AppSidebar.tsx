@@ -48,7 +48,7 @@ export function AppSidebar() {
       const allowedUrls = allowedPages.map((p) => p.page_url);
       
       // Meu Perfil sempre disponível
-      const alwaysAvailable = ['/profile'];
+      const alwaysAvailable = ['/', '/profile']; // Updated to /profile
       
       return allMenuItems.filter((item) => 
         alwaysAvailable.includes(item.url) || allowedUrls.includes(item.url)
@@ -70,6 +70,7 @@ export function AppSidebar() {
           <div>
             <h2 className="text-sm font-semibold text-sidebar-foreground">Painel Revenda</h2>
             <p className="text-xs text-muted-foreground">Acerto Certo</p>
+            <p className="text-xs text-muted-foreground">1.0.0.0.0</p> {/* Versão adicionada aqui */}
           </div>
         </div>
       </SidebarHeader>
@@ -77,28 +78,26 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className={({ isActive }) =>
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                      }
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarMenu>
+            {visibleMenuItems.map((item) => (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to={item.url}
+                    end={item.url === "/"}
+                    className={({ isActive }) =>
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    }
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
