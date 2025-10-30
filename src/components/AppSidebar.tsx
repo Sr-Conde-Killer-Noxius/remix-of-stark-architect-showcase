@@ -93,20 +93,20 @@ export function AppSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-
-        {/* Separador visual */}
-        <div className="h-px bg-sidebar-border my-4 mx-4" /> {/* Adicionado mx-4 para padding horizontal */}
-
-        {/* Botão Sair */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={signOut} className="text-sidebar-foreground hover:bg-sidebar-accent/50">
-              <LogOut className="h-4 w-4" />
-              <span>Sair</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
       </SidebarContent>
+
+      {/* Separador visual antes do botão Sair */}
+      <div className="h-px bg-sidebar-border my-4 mx-4" />
+
+      {/* Botão Sair - Movido para fora do SidebarContent */}
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton onClick={signOut} className="text-sidebar-foreground hover:bg-sidebar-accent/50">
+            <LogOut className="h-4 w-4" />
+            <span>Sair</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="text-center text-muted-foreground text-xs space-y-1">
