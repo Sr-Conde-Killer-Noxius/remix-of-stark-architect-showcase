@@ -138,25 +138,17 @@ export default function Carteira() {
         ...(data?.map(t => t.related_user_id).filter(Boolean) || [])
       ])];
       
-      // Fetch profiles to get full_name
-      const { data: profilesData, error: profilesError } = await supabase
+      // Fetch profiles and their roles
+      const { data: profilesAndRoles, error: profilesAndRolesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name')
+        .select('user_id, full_name, user_roles(role)') // Select role from user_roles table
         .in('user_id', allInvolvedIds);
 
-      if (profilesError) throw profilesError;
+      if (profilesAndRolesError) throw profilesAndRolesError;
 
-      // Fetch user roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('user_id', allInvolvedIds);
-
-      if (rolesError) throw rolesError;
-
-      if (data) {
-        const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]));
-        const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]));
+      if (profilesAndRoles) {
+        const profileMap = new Map(profilesAndRoles.map(p => [p.user_id, p.full_name]));
+        const roleMap = new Map(profilesAndRoles.map(p => [p.user_id, p.user_roles?.[0]?.role])); // Assuming one role per user
         
         const transactionsWithProfiles = data.map(t => ({
           ...t,
@@ -793,19 +785,19 @@ export default function Carteira() {
                   <SelectValue placeholder="Selecione um master" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRole === 'admin' ? (
+                  {userRole === 'admin' ? 
                     masterUsers.map((master) => (
                       <SelectItem key={master.user_id} value={master.user_id}>
                         {master.full_name}
                       </SelectItem>
                     ))
-                  ) : (
+                   : 
                     masterCreatedUsers.map((master) => (
                       <SelectItem key={master.user_id} value={master.user_id}>
                         {master.full_name}
                       </SelectItem>
                     ))
-                  )}
+                  }
                 </SelectContent>
               </Select>
             </div>
@@ -865,24 +857,23 @@ export default function Carteira() {
                       <SelectItem key={master.user_id} value={master.user_id}>
                         {master.full_name}
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
-              <Input
-                id="remove-amount"
-                type="number"
-                min="1"
-                value={removeCreditAmount}
-                onChange={(e) => setRemoveCreditAmount(e.target.value)}
-                placeholder="Ex: 5"
-                className="w-full"
-                disabled={submitting}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
+                <Input
+                  id="remove-amount"
+                  type="number"
+                  min="1"
+                  value={removeCreditAmount}
+                  onChange={(e) => setRemoveCreditAmount(e.target.value)}
+                  placeholder="Ex: 5"
+                  className="w-full"
+                  disabled={submitting}
+                />
             </div>
           </div>
 
