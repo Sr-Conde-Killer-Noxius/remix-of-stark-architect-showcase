@@ -37,6 +37,7 @@ interface Transaction {
   target_user_profile?: { // Added for master-to-master transfers
     full_name: string;
   } | null;
+  performed_by_role?: string | null; // Adicionado para armazenar o papel do usuário que realizou a ação
 }
 
 interface MasterUser {
@@ -116,7 +117,7 @@ export default function Carteira() {
         if (createdMastersError) throw createdMastersError;
         const createdMasterIds = createdMastersProfiles?.map(p => p.user_id) || [];
 
-        const relevantUserIds = [user.id, ...createdMasterIds];
+        const relevantUserIds = [...new Set([user.id, ...createdMasterIds])];
 
         query = supabase
           .from('credit_transactions')
@@ -130,26 +131,31 @@ export default function Carteira() {
 
       if (error) throw error;
 
-      // Fetch profiles for all relevant user_ids, performed_by, and related_user_id
+      // Fetch profiles and roles for all relevant user_ids, performed_by, and related_user_id
       const allInvolvedIds = [...new Set([
         ...(data?.map(t => t.user_id) || []),
         ...(data?.map(t => t.performed_by).filter(Boolean) || []),
         ...(data?.map(t => t.related_user_id).filter(Boolean) || [])
       ])];
       
-      const { data: profiles, error: profilesError } = await supabase
+      // Fetch profiles and their roles
+      const { data: profilesAndRoles, error: profilesAndRolesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name')
+        .select('user_id, full_name, user_roles(role)') // Select role from user_roles table
         .in('user_id', allInvolvedIds);
 
-      if (!profilesError && profiles) {
-        const profileMap = new Map(profiles.map(p => [p.user_id, p.full_name]));
+      if (profilesAndRolesError) throw profilesAndRolesError;
+
+      if (profilesAndRoles) {
+        const profileMap = new Map(profilesAndRoles.map(p => [p.user_id, p.full_name]));
+        const roleMap = new Map(profilesAndRoles.map(p => [p.user_id, p.user_roles?.[0]?.role])); // Assuming one role per user
         
         const transactionsWithProfiles = data.map(t => ({
           ...t,
           master_profile: { full_name: profileMap.get(t.user_id) || 'N/A' }, // User who received/spent the credit
           admin_profile: t.performed_by ? { full_name: profileMap.get(t.performed_by) || 'N/A' } : null, // User who performed the action (admin or master)
           target_user_profile: t.related_user_id ? { full_name: profileMap.get(t.related_user_id) || 'N/A' } : null, // Related user (e.g., target of transfer)
+          performed_by_role: t.performed_by ? roleMap.get(t.performed_by) : null, // New field: role of the user who performed the action
         }));
         
         setTransactions(transactionsWithProfiles);
@@ -399,17 +405,10 @@ export default function Carteira() {
   const creditedTransactions = transactions.filter(t => t.transaction_type === 'credit_added');
   const spentTransactions = transactions.filter(t => t.transaction_type === 'credit_spent');
   
-  // For admin, show all credit_added transactions where performed_by is not null (i.e., admin added it)
-  // For master, show credit_added transactions where user_id is one of their created masters AND performed_by is not the logged-in master
+  // Filter for transactions performed by an admin
   const managedCreditsHistory = transactions.filter(t => {
     if (userRole === 'admin') {
-      return t.transaction_type === 'credit_added' && t.performed_by;
-    } else if (userRole === 'master' && user) {
-      const isForCreatedMaster = masterCreatedUsers.some(m => m.user_id === t.user_id);
-      const isPerformedByAdmin = t.performed_by && t.performed_by !== user.id;
-      const isTransferFromMe = t.performed_by === user.id && t.transaction_type === 'credit_added' && t.related_user_id === user.id; // This should not happen with current logic, but for completeness
-      
-      return (isForCreatedMaster && isPerformedByAdmin) || (t.performed_by === user.id && t.related_user_id && masterCreatedUsers.some(m => m.user_id === t.related_user_id));
+      return t.performed_by_role === 'admin';
     }
     return false;
   });
@@ -515,10 +514,12 @@ export default function Carteira() {
                         const targetUserName = transaction.master_profile?.full_name || transaction.user_id;
                         
                         let descriptionText = transaction.description;
+                        const performerName = transaction.admin_profile?.full_name || 'Admin';
+
                         if (transaction.transaction_type === 'credit_added') {
-                          descriptionText = `Admin adicionou ${transaction.amount} crédito(s) para ${targetUserName}`;
+                          descriptionText = `${performerName} adicionou ${transaction.amount} crédito(s) para ${targetUserName}`;
                         } else if (transaction.transaction_type === 'credit_spent') {
-                          descriptionText = `Admin removeu ${Math.abs(transaction.amount)} crédito(s) de ${targetUserName}`;
+                          descriptionText = `${performerName} removeu ${Math.abs(transaction.amount)} crédito(s) de ${targetUserName}`;
                         }
 
                         return (
@@ -707,7 +708,7 @@ export default function Carteira() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Data</TableHead>
-                    {userRole === 'admin' && <TableHead className="whitespace-nowrap">Master</TableHead>} {/* Movido para cá */}
+                    {userRole === 'admin' && <TableHead className="whitespace-nowrap">Master</TableHead>}
                     <TableHead className="whitespace-nowrap">Ação/Descrição</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Quantidade</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Saldo Após</TableHead>
@@ -739,7 +740,7 @@ export default function Carteira() {
                             {transaction.master_profile?.full_name || 'N/A'}
                           </TableCell>
                         )}
-                        <TableCell className="whitespace-nowrap">{transaction.description}</TableCell> {/* Movido para cá */}
+                        <TableCell className="whitespace-nowrap">{transaction.description}</TableCell>
                         <TableCell className="text-right whitespace-nowrap">
                           <Badge variant="destructive">
                             {transaction.amount}
