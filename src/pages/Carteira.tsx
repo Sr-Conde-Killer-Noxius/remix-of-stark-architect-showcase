@@ -34,6 +34,9 @@ interface Transaction {
   admin_profile?: {
     full_name: string;
   } | null;
+  target_user_profile?: { // Added for master-to-master transfers
+    full_name: string;
+  } | null;
 }
 
 interface MasterUser {
@@ -49,7 +52,8 @@ export default function Carteira() {
   const [addCreditsDialogOpen, setAddCreditsDialogOpen] = useState(false);
   const [removeCreditsDialogOpen, setRemoveCreditsDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [masterUsers, setMasterUsers] = useState<MasterUser[]>([]);
+  const [masterUsers, setMasterUsers] = useState<MasterUser[]>([]); // For admin to select any master
+  const [masterCreatedUsers, setMasterCreatedUsers] = useState<MasterUser[]>([]); // For master to select their created masters
   const [selectedMasterId, setSelectedMasterId] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
   const [selectedRemoveMasterId, setSelectedRemoveMasterId] = useState("");
@@ -96,39 +100,60 @@ export default function Carteira() {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      // Admin sees all transactions, Master sees only their own
+      // Admin sees all transactions, Master sees only their own or related to their created masters
       if (userRole !== 'admin') {
-        query = query.eq('user_id', user.id);
+        // For master, show transactions where:
+        // 1. user_id is the logged-in master (their own spent/added credits)
+        // 2. user_id is one of their created masters (credits added/spent by sub-masters, or managed by admin for sub-masters)
+        // 3. performed_by is the logged-in master AND related_user_id is one of their created masters (their own transfers to sub-masters)
+
+        // First, get IDs of masters created by the logged-in master
+        const { data: createdMastersProfiles, error: createdMastersError } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('created_by', user.id);
+
+        if (createdMastersError) throw createdMastersError;
+        const createdMasterIds = createdMastersProfiles?.map(p => p.user_id) || [];
+
+        const relevantUserIds = [user.id, ...createdMasterIds];
+
+        query = supabase
+          .from('credit_transactions')
+          .select('*')
+          .or(`user_id.in.(${relevantUserIds.join(',')}),and(performed_by.eq.${user.id},related_user_id.in.(${createdMasterIds.join(',')}))`)
+          .order('created_at', { ascending: false })
+          .limit(100);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      // If admin, fetch master profiles and admin profiles
-      if (userRole === 'admin' && data) {
-        const userIds = [...new Set(data.map(t => t.user_id))];
-        const performedByIds = [...new Set(data.map(t => t.performed_by).filter(Boolean))];
-        
-        const allIds = [...new Set([...userIds, ...performedByIds])];
-        
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', allIds);
+      // Fetch profiles for all relevant user_ids, performed_by, and related_user_id
+      const allInvolvedIds = [...new Set([
+        ...(data?.map(t => t.user_id) || []),
+        ...(data?.map(t => t.performed_by).filter(Boolean) || []),
+        ...(data?.map(t => t.related_user_id).filter(Boolean) || [])
+      ])];
+      
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', allInvolvedIds);
 
-        if (!profilesError && profiles) {
-          const profileMap = new Map(profiles.map(p => [p.user_id, p.full_name]));
-          
-          const transactionsWithProfiles = data.map(t => ({
-            ...t,
-            master_profile: { full_name: profileMap.get(t.user_id) || 'N/A' },
-            admin_profile: t.performed_by ? { full_name: profileMap.get(t.performed_by) || 'N/A' } : null
-          }));
-          
-          setTransactions(transactionsWithProfiles);
-          return;
-        }
+      if (!profilesError && profiles) {
+        const profileMap = new Map(profiles.map(p => [p.user_id, p.full_name]));
+        
+        const transactionsWithProfiles = data.map(t => ({
+          ...t,
+          master_profile: { full_name: profileMap.get(t.user_id) || 'N/A' }, // User who received/spent the credit
+          admin_profile: t.performed_by ? { full_name: profileMap.get(t.performed_by) || 'N/A' } : null, // User who performed the action (admin or master)
+          target_user_profile: t.related_user_id ? { full_name: profileMap.get(t.related_user_id) || 'N/A' } : null, // Related user (e.g., target of transfer)
+        }));
+        
+        setTransactions(transactionsWithProfiles);
+        return;
       }
 
       setTransactions(data || []);
@@ -178,11 +203,46 @@ export default function Carteira() {
     }
   };
 
+  const loadMasterCreatedUsers = async () => {
+    if (userRole !== 'master' || !user) return;
+
+    try {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .eq('created_by', user.id)
+        .order('full_name', { ascending: true });
+
+      if (profilesError) throw profilesError;
+
+      const createdMasters: MasterUser[] = [];
+      for (const profile of profiles || []) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', profile.user_id)
+          .maybeSingle();
+        
+        if (roleData?.role === 'master') {
+          createdMasters.push({
+            user_id: profile.user_id,
+            full_name: profile.full_name || "N/A",
+          });
+        }
+      }
+      setMasterCreatedUsers(createdMasters);
+    } catch (error: any) {
+      console.error('Error loading master created users:', error);
+    }
+  };
+
   useEffect(() => {
     loadCreditBalance();
     loadTransactions();
     if (userRole === 'admin') {
       loadMasterUsers();
+    } else if (userRole === 'master') {
+      loadMasterCreatedUsers();
     }
   }, [userRole, user]);
 
@@ -205,18 +265,48 @@ export default function Carteira() {
         throw new Error("Não autenticado");
       }
 
-      const { data: result, error } = await supabase.functions.invoke(
-        "manage-credits",
-        {
-          body: {
-            targetUserId: selectedMasterId,
-            amount: parseInt(creditAmount),
-          },
-          headers: {
-            'Authorization': `Bearer ${sessionData.session.access_token}`
+      let result, error;
+
+      if (userRole === 'admin') {
+        ({ data: result, error } = await supabase.functions.invoke(
+          "manage-credits",
+          {
+            body: {
+              targetUserId: selectedMasterId,
+              amount: parseInt(creditAmount),
+            },
+            headers: {
+              'Authorization': `Bearer ${sessionData.session.access_token}`
+            }
           }
+        ));
+      } else if (userRole === 'master') {
+        // Client-side check for master's own balance before invoking Edge Function
+        if (creditBalance === null || creditBalance < parseInt(creditAmount)) {
+          toast({
+            title: "Créditos insuficientes",
+            description: `Você tem ${creditBalance || 0} créditos, mas precisa de ${creditAmount}.`,
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
         }
-      );
+
+        ({ data: result, error } = await supabase.functions.invoke(
+          "transfer-credits-master-to-master",
+          {
+            body: {
+              targetUserId: selectedMasterId,
+              amount: parseInt(creditAmount),
+            },
+            headers: {
+              'Authorization': `Bearer ${sessionData.session.access_token}`
+            }
+          }
+        ));
+      } else {
+        throw new Error("Ação não permitida para sua função.");
+      }
 
       if (error) throw error;
 
@@ -226,7 +316,7 @@ export default function Carteira() {
 
       toast({
         title: "Créditos adicionados com sucesso!",
-        description: `${creditAmount} crédito(s) adicionado(s) a ${result.targetUser}`,
+        description: `${creditAmount} crédito(s) adicionado(s) a ${result.targetUser || selectedMasterId}`,
       });
 
       setAddCreditsDialogOpen(false);
@@ -308,9 +398,21 @@ export default function Carteira() {
 
   const creditedTransactions = transactions.filter(t => t.transaction_type === 'credit_added');
   const spentTransactions = transactions.filter(t => t.transaction_type === 'credit_spent');
-  const adminAddedTransactions = transactions.filter(t => 
-    t.transaction_type === 'credit_added' && t.performed_by
-  );
+  
+  // For admin, show all credit_added transactions where performed_by is not null (i.e., admin added it)
+  // For master, show credit_added transactions where user_id is one of their created masters AND performed_by is not the logged-in master
+  const managedCreditsHistory = transactions.filter(t => {
+    if (userRole === 'admin') {
+      return t.transaction_type === 'credit_added' && t.performed_by;
+    } else if (userRole === 'master' && user) {
+      const isForCreatedMaster = masterCreatedUsers.some(m => m.user_id === t.user_id);
+      const isPerformedByAdmin = t.performed_by && t.performed_by !== user.id;
+      const isTransferFromMe = t.performed_by === user.id && t.transaction_type === 'credit_added' && t.related_user_id === user.id; // This should not happen with current logic, but for completeness
+      
+      return (isForCreatedMaster && isPerformedByAdmin) || (t.performed_by === user.id && t.related_user_id && masterCreatedUsers.some(m => m.user_id === t.related_user_id));
+    }
+    return false;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -339,7 +441,7 @@ export default function Carteira() {
                 {userRole === 'admin' ? 'Ilimitado' : 'créditos'}
               </span>
             </div>
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'master') && (
               <div className="flex flex-col sm:flex-row gap-2 mt-4"> {/* Empilhado em telas pequenas */}
                 <Button 
                   onClick={() => setAddCreditsDialogOpen(true)}
@@ -348,29 +450,33 @@ export default function Carteira() {
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Créditos a Master
                 </Button>
-                <Button 
-                  onClick={() => setRemoveCreditsDialogOpen(true)}
-                  variant="destructive"
-                  className="w-full sm:w-auto"
-                >
-                  <Coins className="mr-2 h-4 w-4" />
-                  Remover Créditos de Master
-                </Button>
+                {userRole === 'admin' && ( // Only admin can remove credits
+                  <Button 
+                    onClick={() => setRemoveCreditsDialogOpen(true)}
+                    variant="destructive"
+                    className="w-full sm:w-auto"
+                  >
+                    <Coins className="mr-2 h-4 w-4" />
+                    Remover Créditos de Master
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Histórico de Adições/Remoções pelos Admins (only for Admins) */}
-        {userRole === 'admin' && (
+        {/* Histórico de Créditos Gerenciados (Admin: todos, Master: seus sub-masters) */}
+        {(userRole === 'admin' || userRole === 'master') && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Coins className="h-5 w-5 text-blue-600" />
-                Histórico de Créditos Gerenciados por Administradores
+                {userRole === 'admin' ? 'Histórico de Créditos Gerenciados por Administradores' : 'Histórico de Créditos de Suas Revendas Master'}
               </CardTitle>
               <CardDescription>
-                Registro de todas as adições e remoções de créditos feitas por administradores
+                {userRole === 'admin' 
+                  ? 'Registro de todas as adições e remoções de créditos feitas por administradores'
+                  : 'Registro de créditos adicionados/removidos para suas revendas master, ou transferidos por você'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -379,7 +485,7 @@ export default function Carteira() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="whitespace-nowrap">Data</TableHead>
-                      <TableHead className="whitespace-nowrap">Administrador</TableHead>
+                      <TableHead className="whitespace-nowrap">{userRole === 'admin' ? 'Administrador' : 'Iniciador'}</TableHead>
                       <TableHead className="whitespace-nowrap">Ação/Descrição</TableHead>
                       <TableHead className="text-right whitespace-nowrap">Quantidade</TableHead>
                       <TableHead className="text-right whitespace-nowrap">Saldo Após</TableHead>
@@ -394,29 +500,36 @@ export default function Carteira() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ) : adminAddedTransactions.length === 0 ? (
+                    ) : managedCreditsHistory.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          Nenhuma adição ou remoção de crédito registrada
+                          Nenhuma transação de crédito gerenciada registrada
                         </TableCell>
                       </TableRow>
                     ) : (
-                      adminAddedTransactions.map((transaction) => {
+                      managedCreditsHistory.map((transaction) => {
                         const isAddition = transaction.amount > 0;
-                        const masterName = transaction.master_profile?.full_name || 'N/A';
-                        const actionText = isAddition 
-                          ? `Adicionando crédito para ${masterName}`
-                          : `Removendo crédito de ${masterName}`;
+                        const targetUserName = transaction.target_user_profile?.full_name || transaction.related_user_id || 'N/A';
+                        const initiatorName = transaction.admin_profile?.full_name || transaction.master_profile?.full_name || 'N/A';
                         
+                        let descriptionText = transaction.description;
+                        if (userRole === 'master' && transaction.transaction_type === 'credit_added' && transaction.performed_by !== user?.id) {
+                          descriptionText = `Recebido de Admin para ${transaction.master_profile?.full_name || transaction.user_id}`;
+                        } else if (userRole === 'master' && transaction.transaction_type === 'credit_added' && transaction.performed_by === user?.id) {
+                          descriptionText = `Transferido por você para ${transaction.master_profile?.full_name || transaction.user_id}`;
+                        } else if (userRole === 'master' && transaction.transaction_type === 'credit_spent' && transaction.performed_by === user?.id) {
+                          descriptionText = `Transferido por você para ${targetUserName}`;
+                        }
+
                         return (
                           <TableRow key={transaction.id}>
                             <TableCell className="whitespace-nowrap">
                               {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
                             </TableCell>
                             <TableCell className="font-medium whitespace-nowrap">
-                              {transaction.admin_profile?.full_name || 'N/A'}
+                              {initiatorName}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">{actionText}</TableCell>
+                            <TableCell className="whitespace-nowrap">{descriptionText}</TableCell>
                             <TableCell className="text-right whitespace-nowrap">
                               <Badge variant={isAddition ? "default" : "destructive"} className={isAddition ? "bg-green-600" : ""}>
                                 {isAddition ? `+${transaction.amount}` : transaction.amount}
@@ -442,10 +555,10 @@ export default function Carteira() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-green-600" />
-                Créditos Adquiridos
+                Créditos Adquiridos (Seu Saldo)
               </CardTitle>
               <CardDescription>
-                Histórico de créditos adicionados por administradores
+                Histórico de créditos adicionados ao seu saldo por administradores ou transferidos por você
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -468,14 +581,14 @@ export default function Carteira() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ) : creditedTransactions.length === 0 ? (
+                    ) : creditedTransactions.filter(t => t.user_id === user?.id).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                           Nenhum crédito adquirido ainda
                         </TableCell>
                       </TableRow>
                     ) : (
-                      creditedTransactions.map((transaction) => (
+                      creditedTransactions.filter(t => t.user_id === user?.id).map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
@@ -512,7 +625,7 @@ export default function Carteira() {
             <CardDescription>
               {userRole === 'admin' 
                 ? 'Histórico de gastos de todos os masters'
-                : 'Histórico de créditos utilizados em criação e renovação'}
+                : 'Histórico de créditos utilizados em criação, renovação ou transferência'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -572,29 +685,45 @@ export default function Carteira() {
         </Card>
       </main>
 
-      {/* Add Credits Dialog (Admin only) */}
+      {/* Add Credits Dialog (Admin and Master) */}
       <Dialog open={addCreditsDialogOpen} onOpenChange={setAddCreditsDialogOpen}>
         <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <DialogHeader>
-            <DialogTitle>Adicionar Créditos</DialogTitle>
+            <DialogTitle>
+              {userRole === 'admin' ? 'Adicionar Créditos' : 'Transferir Créditos para Revenda Master'}
+            </DialogTitle>
             <DialogDescription>
-              Adicione créditos a um usuário master específico
+              {userRole === 'admin' 
+                ? 'Adicione créditos a um usuário master específico'
+                : 'Transfira créditos do seu saldo para uma revenda master que você criou'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="master">Usuário Master</Label>
-              <Select value={selectedMasterId} onValueChange={setSelectedMasterId}>
+              <Select 
+                value={selectedMasterId} 
+                onValueChange={setSelectedMasterId}
+                disabled={submitting}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione um master" />
                 </SelectTrigger>
                 <SelectContent>
-                  {masterUsers.map((master) => (
-                    <SelectItem key={master.user_id} value={master.user_id}>
-                      {master.full_name}
-                    </SelectItem>
-                  ))}
+                  {userRole === 'admin' ? (
+                    masterUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    masterCreatedUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -609,6 +738,7 @@ export default function Carteira() {
                 onChange={(e) => setCreditAmount(e.target.value)}
                 placeholder="Ex: 10"
                 className="w-full"
+                disabled={submitting}
               />
             </div>
           </div>
@@ -623,75 +753,78 @@ export default function Carteira() {
             >
               Cancelar
             </Button>
-            <Button onClick={handleAddCredits} disabled={submitting} className="w-full sm:w-auto">
-              {submitting ? "Adicionando..." : "Adicionar Créditos"}
+            <Button onClick={handleAddCredits} disabled={submitting || !selectedMasterId || !creditAmount}>
+              {submitting ? "Processando..." : (userRole === 'admin' ? "Adicionar Créditos" : "Transferir Créditos")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Remove Credits Dialog (Admin only) */}
-      <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
-          <DialogHeader>
-            <DialogTitle>Remover Créditos</DialogTitle>
-            <DialogDescription>
-              Remova créditos de um usuário master específico
-            </DialogDescription>
-          </DialogHeader>
+      {userRole === 'admin' && (
+        <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
+          <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+            <DialogHeader>
+              <DialogTitle>Remover Créditos</DialogTitle>
+              <DialogDescription>
+                Remova créditos de um usuário master específico
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="remove-master">Usuário Master</Label>
-              <Select value={selectedRemoveMasterId} onValueChange={setSelectedRemoveMasterId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione um master" />
-                </SelectTrigger>
-                <SelectContent>
-                  {masterUsers.map((master) => (
-                    <SelectItem key={master.user_id} value={master.user_id}>
-                      {master.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="remove-master">Usuário Master</Label>
+                <Select value={selectedRemoveMasterId} onValueChange={setSelectedRemoveMasterId} disabled={submitting}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione um master" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {masterUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
+                <Input
+                  id="remove-amount"
+                  type="number"
+                  min="1"
+                  value={removeCreditAmount}
+                  onChange={(e) => setRemoveCreditAmount(e.target.value)}
+                  placeholder="Ex: 5"
+                  className="w-full"
+                  disabled={submitting}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
-              <Input
-                id="remove-amount"
-                type="number"
-                min="1"
-                value={removeCreditAmount}
-                onChange={(e) => setRemoveCreditAmount(e.target.value)}
-                placeholder="Ex: 5"
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRemoveCreditsDialogOpen(false)}
-              disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleRemoveCredits} 
-              disabled={submitting}
-              variant="destructive"
-              className="w-full sm:w-auto"
-            >
-              {submitting ? "Removendo..." : "Remover Créditos"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRemoveCreditsDialogOpen(false)}
+                disabled={submitting}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleRemoveCredits} 
+                disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
+                variant="destructive"
+                className="w-full sm:w-auto"
+              >
+                {submitting ? "Removendo..." : "Remover Créditos"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
