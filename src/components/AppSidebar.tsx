@@ -96,7 +96,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Separador visual antes do botão Sair */}
-      <div className="h-px bg-sidebar-border mx-4" />
+      {/*<div className="h-px bg-sidebar-border mx-4" />
 
       {/* Botão Sair - Movido para fora do SidebarContent */}
       <SidebarMenu className="py-2 mb-2"> {/* Adicionado py-2 e mb-2 para espaçamento */}
