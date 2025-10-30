@@ -5,6 +5,12 @@ import { usePageAccess } from "@/hooks/usePageAccessControl";
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, userRole } = useAuth();
   const location = useLocation();
+  const pathname = location.pathname;
+
+  // Chamar usePageAccess incondicionalmente.
+  // A query será desabilitada se userRole for 'admin' ou nulo/indefinido,
+  // mas a ordem de chamada do hook permanece consistente.
+  const { data: hasAccess, isLoading: checkingAccess } = usePageAccess(userRole, pathname);
 
   if (loading) {
     return (
@@ -21,17 +27,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Role-based access control
-  const pathname = location.pathname;
-  
-  // Admin has access to everything
+  // Admin sempre tem acesso a tudo
   if (userRole === 'admin') {
     return <>{children}</>;
   }
   
-  // Verificar acesso dinâmico para master e reseller
-  const { data: hasAccess, isLoading: checkingAccess } = usePageAccess(userRole, pathname);
-  
+  // Se não for admin, e ainda estiver verificando o acesso, mostra carregando
   if (checkingAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -44,7 +45,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
   
   // Páginas sempre disponíveis (não precisam estar na tabela de controle)
-  const alwaysAllowed = ['/', '/profile']; // Updated to /profile
+  const alwaysAllowed = ['/', '/profile'];
   
   // Se for master ou reseller
   if (userRole === 'master' || userRole === 'reseller') {
@@ -62,5 +63,6 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/" replace />;
   }
 
+  // Fallback para qualquer outro caso (deve ser coberto pelos acima, mas bom para segurança)
   return <>{children}</>;
 }

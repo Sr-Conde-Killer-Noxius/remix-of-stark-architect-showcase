@@ -103,12 +103,6 @@ export default function Carteira() {
 
       // Admin sees all transactions, Master sees only their own or related to their created masters
       if (userRole !== 'admin') {
-        // For master, show transactions where:
-        // 1. user_id is the logged-in master (their own spent/added credits)
-        // 2. user_id is one of their created masters (credits added/spent by sub-masters, or managed by admin for sub-masters)
-        // 3. performed_by is the logged-in master AND related_user_id is one of their created masters (their own transfers to sub-masters)
-
-        // First, get IDs of masters created by the logged-in master
         const { data: createdMastersProfiles, error: createdMastersError } = await supabase
           .from('profiles')
           .select('user_id')
@@ -119,50 +113,49 @@ export default function Carteira() {
 
         const relevantUserIds = [...new Set([user.id, ...createdMasterIds])];
 
-        query = supabase
-          .from('credit_transactions')
-          .select('*')
-          .or(`user_id.in.(${relevantUserIds.join(',')}),and(performed_by.eq.${user.id},related_user_id.in.(${createdMasterIds.join(',')}))`)
-          .order('created_at', { ascending: false })
-          .limit(100);
+        query = query.or(`user_id.in.(${relevantUserIds.join(',')}),and(performed_by.eq.${user.id},related_user_id.in.(${createdMasterIds.join(',')}))`);
       }
 
-      const { data, error } = await query;
+      const { data: transactionsData, error: transactionsError } = await query;
 
-      if (error) throw error;
+      if (transactionsError) throw transactionsError;
 
-      // Fetch profiles and roles for all relevant user_ids, performed_by, and related_user_id
-      const allInvolvedIds = [...new Set([
-        ...(data?.map(t => t.user_id) || []),
-        ...(data?.map(t => t.performed_by).filter(Boolean) || []),
-        ...(data?.map(t => t.related_user_id).filter(Boolean) || [])
-      ])];
-      
-      // Fetch profiles and their roles
-      const { data: profilesAndRoles, error: profilesAndRolesError } = await supabase
+      // Collect all unique user_ids, performed_by, and related_user_id from transactions
+      const allInvolvedIds = new Set<string>();
+      transactionsData?.forEach(t => {
+        allInvolvedIds.add(t.user_id);
+        if (t.performed_by) allInvolvedIds.add(t.performed_by);
+        if (t.related_user_id) allInvolvedIds.add(t.related_user_id);
+      });
+      const uniqueInvolvedIds = Array.from(allInvolvedIds);
+
+      // Fetch profiles for these IDs
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, user_roles(role)') // Select role from user_roles table
-        .in('user_id', allInvolvedIds);
+        .select('user_id, full_name')
+        .in('user_id', uniqueInvolvedIds);
 
-      if (profilesAndRolesError) throw profilesAndRolesError;
+      if (profilesError) throw profilesError;
+      const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]));
 
-      if (profilesAndRoles) {
-        const profileMap = new Map(profilesAndRoles.map(p => [p.user_id, p.full_name]));
-        const roleMap = new Map(profilesAndRoles.map(p => [p.user_id, p.user_roles?.[0]?.role])); // Assuming one role per user
-        
-        const transactionsWithProfiles = data.map(t => ({
-          ...t,
-          master_profile: { full_name: profileMap.get(t.user_id) || 'N/A' }, // User who received/spent the credit
-          admin_profile: t.performed_by ? { full_name: profileMap.get(t.performed_by) || 'N/A' } : null, // User who performed the action (admin or master)
-          target_user_profile: t.related_user_id ? { full_name: profileMap.get(t.related_user_id) || 'N/A' } : null, // Related user (e.g., target of transfer)
-          performed_by_role: t.performed_by ? roleMap.get(t.performed_by) : null, // New field: role of the user who performed the action
-        }));
-        
-        setTransactions(transactionsWithProfiles);
-        return;
-      }
+      // Fetch user roles for these IDs
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', uniqueInvolvedIds);
 
-      setTransactions(data || []);
+      if (rolesError) throw rolesError;
+      const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]));
+      
+      const transactionsWithProfiles = transactionsData.map(t => ({
+        ...t,
+        master_profile: { full_name: profileMap.get(t.user_id) || 'N/A' },
+        admin_profile: t.performed_by ? { full_name: profileMap.get(t.performed_by) || 'N/A' } : null,
+        target_user_profile: t.related_user_id ? { full_name: profileMap.get(t.related_user_id) || 'N/A' } : null,
+        performed_by_role: t.performed_by ? roleMap.get(t.performed_by) : null,
+      }));
+      
+      setTransactions(transactionsWithProfiles);
     } catch (error: any) {
       console.error('Error loading transactions:', error);
       toast({
@@ -836,8 +829,8 @@ export default function Carteira() {
 
       {/* Remove Credits Dialog (Admin only) */}
       {userRole === 'admin' ? (
-        <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
-          <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+        <Fragment> {/* Envolvido em Fragment para resolver erro de sintaxe JSX */}
+          <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
             <DialogHeader>
               <DialogTitle>Remover Créditos</DialogTitle>
               <DialogDescription>
@@ -896,8 +889,8 @@ export default function Carteira() {
               {submitting ? "Removendo..." : "Remover Créditos"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </Dialog>
+        </Fragment>
       ) : null}
     </div>
   );
