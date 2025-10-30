@@ -711,21 +711,19 @@ export default function Carteira() {
                   <SelectValue placeholder="Selecione um master" />
                 </SelectTrigger>
                 <SelectContent>
-                  <Fragment> {/* Adicionado Fragment aqui */}
-                    {userRole === 'admin' ? (
-                      masterUsers.map((master) => (
-                        <SelectItem key={master.user_id} value={master.user_id}>
-                          {master.full_name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      masterCreatedUsers.map((master) => (
-                        <SelectItem key={master.user_id} value={master.user_id}>
-                          {master.full_name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </Fragment> {/* Fechamento do Fragment */}
+                  {userRole === 'admin' ? (
+                    masterUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    masterCreatedUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -781,52 +779,50 @@ export default function Carteira() {
                     <SelectValue placeholder="Selecione um master" />
                   </SelectTrigger>
                   <SelectContent>
-                    <Fragment> {/* Adicionado Fragment aqui */}
-                      {masterUsers.map((master) => (
-                        <SelectItem key={master.user_id} value={master.user_id}>
-                          {master.full_name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </Fragment> {/* Fechamento do Fragment */}
-                </SelectContent>
-              </Select>
+                    {masterUsers.map((master) => (
+                      <SelectItem key={master.user_id} value={master.user_id}>
+                        {master.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
+                <Input
+                  id="remove-amount"
+                  type="number"
+                  min="1"
+                  value={removeCreditAmount}
+                  onChange={(e) => setRemoveCreditAmount(e.target.value)}
+                  placeholder="Ex: 5"
+                  className="w-full"
+                  disabled={submitting}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
-              <Input
-                id="remove-amount"
-                type="number"
-                min="1"
-                value={removeCreditAmount}
-                onChange={(e) => setRemoveCreditAmount(e.target.value)}
-                placeholder="Ex: 5"
-                className="w-full"
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRemoveCreditsDialogOpen(false)}
                 disabled={submitting}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRemoveCreditsDialogOpen(false)}
-              disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleRemoveCredits} 
-              disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
-              variant="destructive"
-              className="w-full sm:w-auto"
-            >
-              {submitting ? "Removendo..." : "Remover Créditos"}
-            </Button>
-          </DialogFooter>
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleRemoveCredits} 
+                disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
+                variant="destructive"
+                className="w-full sm:w-auto"
+              >
+                {submitting ? "Removendo..." : "Remover Créditos"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
       )}
     </div>
