@@ -86,17 +86,9 @@ serve(async (req) => {
       }
     }
 
-    // Delete the user using admin API first
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    // --- INÍCIO DA LÓGICA REORDENADA ---
 
-    if (deleteError) {
-      console.error('Error deleting user:', deleteError);
-      throw deleteError;
-    }
-
-    console.log('User deleted successfully');
-
-    // Enviar webhook para Acerto Certo e registrar histórico
+    // 1. Preparar payload do webhook e variáveis de log de histórico
     let targetWebhookUrl = 'not_configured';
     const payload = {
       eventType: 'delete_user',
@@ -105,6 +97,7 @@ serve(async (req) => {
     let statusCode = 200;
     let responseBody = 'Webhook URL not configured, no external call made.';
 
+    // 2. Tentar enviar o webhook e capturar a resposta
     try {
       const { data: config } = await supabaseAdmin
         .from('webhook_configs')
@@ -135,7 +128,8 @@ serve(async (req) => {
       statusCode = 500;
       responseBody = webhookError instanceof Error ? webhookError.message : 'Unknown error during webhook processing.';
     } finally {
-      // Sempre logar no histórico, independentemente do sucesso ou falha do fetch
+      // 3. SEMPRE logar no histórico, independentemente do sucesso ou falha do fetch
+      // ISSO DEVE ACONTECER ANTES DA EXCLUSÃO DO USUÁRIO para evitar a violação de FK
       try {
         const { error: logInsertError } = await supabaseAdmin
           .from('acerto_certo_webhook_history')
@@ -145,21 +139,34 @@ serve(async (req) => {
             payload: payload,
             response_status_code: statusCode,
             response_body: responseBody,
-            revenda_user_id: userId
+            revenda_user_id: userId // userId ainda existe em profiles neste ponto
           });
         
         if (logInsertError) {
           console.error('Failed to log webhook history:', logInsertError);
-          // Re-throw the error to ensure the main function's catch block is hit
+          // Re-throw o erro para garantir que o bloco catch principal seja acionado
           throw new Error(`Failed to log webhook history: ${logInsertError.message}`);
         }
         console.log('Webhook history logged successfully');
       } catch (logError) {
         console.error('Critical: Failed to log webhook history even after initial attempt:', logError);
-        // Re-throw this critical error as well
+        // Re-throw este erro crítico também
         throw logError;
       }
     }
+
+    // 4. Agora, exclua o usuário usando a API de administração
+    // Isso irá acionar o CASCADE DELETE em profiles e, em seguida, em acerto_certo_webhook_history
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (deleteError) {
+      console.error('Error deleting user:', deleteError);
+      throw deleteError;
+    }
+
+    console.log('User deleted successfully');
+
+    // --- FIM DA LÓGICA REORDENADA ---
 
     return new Response(
       JSON.stringify({ 
