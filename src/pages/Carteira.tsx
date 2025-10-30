@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react"; // Importar Fragment
+import { useState, useEffect, Fragment } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Coins, Plus, TrendingDown, TrendingUp, Repeat2 } from "lucide-react"; // Adicionado Repeat2 para o novo ícone
 import { format } from "date-fns";
 
 interface CreditData {
@@ -414,11 +414,16 @@ export default function Carteira() {
     return false;
   });
 
+  // New filter for master-to-master transfers
+  const masterToMasterTransactions = transactions.filter(t => 
+    t.transaction_type === 'credit_spent' && t.description.startsWith('Transferência para Master')
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader title="Carteira de Créditos" />
 
-      <main className="container mx-auto p-4 sm:p-6 space-y-6"> {/* Ajustado padding */}
+      <main className="container mx-auto p-4 sm:p-6 space-y-6">
         {/* Saldo Card */}
         <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-background">
           <CardHeader>
@@ -434,15 +439,15 @@ export default function Carteira() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-bold text-primary"> {/* Ajustado tamanho da fonte */}
+              <span className="text-4xl sm:text-5xl font-bold text-primary">
                 {userRole === 'admin' ? '∞' : creditBalance ?? 0}
               </span>
-              <span className="text-lg sm:text-xl text-muted-foreground"> {/* Ajustado tamanho da fonte */}
+              <span className="text-lg sm:text-xl text-muted-foreground">
                 {userRole === 'admin' ? 'Ilimitado' : 'créditos'}
               </span>
             </div>
             {(userRole === 'admin' || userRole === 'master') && (
-              <div className="flex flex-col sm:flex-row gap-2 mt-4"> {/* Empilhado em telas pequenas */}
+              <div className="flex flex-col sm:flex-row gap-2 mt-4">
                 <Button 
                   onClick={() => setAddCreditsDialogOpen(true)}
                   className="w-full sm:w-auto"
@@ -450,7 +455,7 @@ export default function Carteira() {
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Créditos a Master
                 </Button>
-                {userRole === 'admin' && ( // Only admin can remove credits
+                {userRole === 'admin' && (
                   <Button 
                     onClick={() => setRemoveCreditsDialogOpen(true)}
                     variant="destructive"
@@ -465,8 +470,8 @@ export default function Carteira() {
           </CardContent>
         </Card>
 
-        {/* Histórico de Créditos Gerenciados (Admin: todos, Master: seus sub-masters) */}
-        {userRole === 'admin' && ( // Only show for admin
+        {/* Histórico de Créditos Gerenciados por Administradores (Admin only) */}
+        {userRole === 'admin' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -478,8 +483,8 @@ export default function Carteira() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border overflow-x-auto"> {/* Adicionado overflow-x-auto */}
-                <Table className="min-w-max"> {/* Adicionado min-w-max */}
+              <div className="rounded-lg border overflow-x-auto">
+                <Table className="min-w-max">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="whitespace-nowrap">Data</TableHead>
@@ -507,10 +512,9 @@ export default function Carteira() {
                     ) : (
                       managedCreditsHistory.map((transaction) => {
                         const isAddition = transaction.amount > 0;
-                        const targetUserName = transaction.master_profile?.full_name || transaction.user_id; // Use master_profile for the target user
+                        const targetUserName = transaction.master_profile?.full_name || transaction.user_id;
                         
                         let descriptionText = transaction.description;
-                        // Adjust description for admin view to include target user name
                         if (transaction.transaction_type === 'credit_added') {
                           descriptionText = `Admin adicionou ${transaction.amount} crédito(s) para ${targetUserName}`;
                         } else if (transaction.transaction_type === 'credit_spent') {
@@ -545,6 +549,75 @@ export default function Carteira() {
           </Card>
         )}
 
+        {/* Histórico de Créditos Gerenciados por Masters (Admin only) */}
+        {userRole === 'admin' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Repeat2 className="h-5 w-5 text-purple-600" />
+                Histórico de Créditos Gerenciados por Masters
+              </CardTitle>
+              <CardDescription>
+                Registro de todas as transferências de créditos entre usuários Master
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-lg border overflow-x-auto">
+                <Table className="min-w-max">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Data</TableHead>
+                      <TableHead className="whitespace-nowrap">Master Remetente</TableHead>
+                      <TableHead className="whitespace-nowrap">Master Destinatário</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Quantidade</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Saldo Remetente Após</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <div className="flex justify-center">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : masterToMasterTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          Nenhuma transferência de crédito entre Masters registrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      masterToMasterTransactions.map((transaction) => (
+                        <TableRow key={transaction.id}>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {transaction.master_profile?.full_name || 'N/A'}
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {transaction.target_user_profile?.full_name || 'N/A'}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                            <Badge variant="destructive">
+                              {Math.abs(transaction.amount)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium whitespace-nowrap">
+                            {transaction.balance_after}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Créditos Adquiridos (only for Masters) */}
         {userRole === 'master' && (
           <Card>
@@ -558,8 +631,8 @@ export default function Carteira() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border overflow-x-auto"> {/* Adicionado overflow-x-auto */}
-                <Table className="min-w-max"> {/* Adicionado min-w-max */}
+              <div className="rounded-lg border overflow-x-auto">
+                <Table className="min-w-max">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="whitespace-nowrap">Data</TableHead>
@@ -629,8 +702,8 @@ export default function Carteira() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border overflow-x-auto"> {/* Adicionado overflow-x-auto */}
-              <Table className="min-w-max"> {/* Adicionado min-w-max */}
+            <div className="rounded-lg border overflow-x-auto">
+              <Table className="min-w-max">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Data</TableHead>
@@ -687,7 +760,7 @@ export default function Carteira() {
 
       {/* Add Credits Dialog (Admin and Master) */}
       <Dialog open={addCreditsDialogOpen} onOpenChange={setAddCreditsDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {userRole === 'admin' ? 'Adicionar Créditos' : 'Transferir Créditos para Revenda Master'}
@@ -743,7 +816,7 @@ export default function Carteira() {
             </div>
           </div>
 
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -763,7 +836,7 @@ export default function Carteira() {
       {/* Remove Credits Dialog (Admin only) */}
       {userRole === 'admin' && (
         <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
-          <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+          <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Remover Créditos</DialogTitle>
               <DialogDescription>
@@ -803,7 +876,7 @@ export default function Carteira() {
               </div>
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
