@@ -102,7 +102,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-4"> {/* Adicionado mb-4 para espaçamento */}
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               {user?.email?.substring(0, 2).toUpperCase() || "AC"}
@@ -123,6 +123,18 @@ export function AppSidebar() {
           >
             <LogOut className="h-4 w-4" />
           </Button>
+        </div>
+        <div className="text-center text-muted-foreground text-xs space-y-1"> {/* Ajustado para text-xs */}
+          <p>Desenvolvido por</p>
+          <a 
+            href="https://digitalsouloficial.vercel.app/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-primary hover:underline"
+          >
+            Digital Soul Solutions
+          </a>
+          <p>CNPJ: 58.870.696/0001-97</p>
         </div>
       </SidebarFooter>
     </Sidebar>
