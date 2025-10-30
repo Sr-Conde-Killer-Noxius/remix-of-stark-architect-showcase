@@ -835,7 +835,7 @@ export default function Carteira() {
       </Dialog>
 
       {/* Remove Credits Dialog (Admin only) */}
-      {userRole === 'admin' && (
+      {userRole === 'admin' ? (
         <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
           <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -896,8 +896,9 @@ export default function Carteira() {
               {submitting ? "Removendo..." : "Remover Créditos"}
             </Button>
           </DialogFooter>
-        </Dialog>
-      )}
+        </DialogContent>
+      </Dialog>
+      ) : null}
     </div>
   );
 }
