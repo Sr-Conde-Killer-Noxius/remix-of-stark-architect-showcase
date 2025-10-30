@@ -990,29 +990,30 @@ export default function Carteira() {
                   className="w-full"
                   disabled={submitting}
                 />
+              </div> {/* Adicionada a tag </div> que faltava aqui */}
             </div>
-          </div>
 
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRemoveCreditsDialogOpen(false)}
-              disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleRemoveCredits} 
-              disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
-              variant="destructive"
-              className="w-full sm:w-auto"
-            >
-              {submitting ? "Removendo..." : "Remover Créditos"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRemoveCreditsDialogOpen(false)}
+                disabled={submitting}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleRemoveCredits} 
+                disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
+                variant="destructive"
+                className="w-full sm:w-auto"
+              >
+                {submitting ? "Removendo..." : "Remover Créditos"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );
