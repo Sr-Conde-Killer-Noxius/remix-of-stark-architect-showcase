@@ -138,17 +138,25 @@ export default function Carteira() {
         ...(data?.map(t => t.related_user_id).filter(Boolean) || [])
       ])];
       
-      // Fetch profiles and their roles
-      const { data: profilesAndRoles, error: profilesAndRolesError } = await supabase
+      // Fetch profiles to get full_name
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, user_roles(role)') // Select role from user_roles table
+        .select('user_id, full_name')
         .in('user_id', allInvolvedIds);
 
-      if (profilesAndRolesError) throw profilesAndRolesError;
+      if (profilesError) throw profilesError;
 
-      if (profilesAndRoles) {
-        const profileMap = new Map(profilesAndRoles.map(p => [p.user_id, p.full_name]));
-        const roleMap = new Map(profilesAndRoles.map(p => [p.user_id, p.user_roles?.[0]?.role])); // Assuming one role per user
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', allInvolvedIds);
+
+      if (rolesError) throw rolesError;
+
+      if (data) {
+        const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]));
+        const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]));
         
         const transactionsWithProfiles = data.map(t => ({
           ...t,
@@ -857,47 +865,47 @@ export default function Carteira() {
                       <SelectItem key={master.user_id} value={master.user_id}>
                         {master.full_name}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
-                <Input
-                  id="remove-amount"
-                  type="number"
-                  min="1"
-                  value={removeCreditAmount}
-                  onChange={(e) => setRemoveCreditAmount(e.target.value)}
-                  placeholder="Ex: 5"
-                  className="w-full"
-                  disabled={submitting}
-                />
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRemoveCreditsDialogOpen(false)}
+            <div className="space-y-2">
+              <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
+              <Input
+                id="remove-amount"
+                type="number"
+                min="1"
+                value={removeCreditAmount}
+                onChange={(e) => setRemoveCreditAmount(e.target.value)}
+                placeholder="Ex: 5"
+                className="w-full"
                 disabled={submitting}
-                className="w-full sm:w-auto"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleRemoveCredits} 
-                disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
-                variant="destructive"
-                className="w-full sm:w-auto"
-              >
-                {submitting ? "Removendo..." : "Remover Créditos"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveCreditsDialogOpen(false)}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleRemoveCredits} 
+              disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
+              variant="destructive"
+              className="w-full sm:w-auto"
+            >
+              {submitting ? "Removendo..." : "Remover Créditos"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       )}
     </div>
   );
