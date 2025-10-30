@@ -466,17 +466,15 @@ export default function Carteira() {
         </Card>
 
         {/* Histórico de Créditos Gerenciados (Admin: todos, Master: seus sub-masters) */}
-        {(userRole === 'admin' || userRole === 'master') && (
+        {userRole === 'admin' && ( // Only show for admin
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Coins className="h-5 w-5 text-blue-600" />
-                {userRole === 'admin' ? 'Histórico de Créditos Gerenciados por Administradores' : 'Histórico de Créditos de Suas Revendas Master'}
+                Histórico de Créditos Gerenciados por Administradores
               </CardTitle>
               <CardDescription>
-                {userRole === 'admin' 
-                  ? 'Registro de todas as adições e remoções de créditos feitas por administradores'
-                  : 'Registro de créditos adicionados/removidos para suas revendas master, ou transferidos por você'}
+                Registro de todas as adições e remoções de créditos feitas por administradores
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -485,7 +483,7 @@ export default function Carteira() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="whitespace-nowrap">Data</TableHead>
-                      <TableHead className="whitespace-nowrap">{userRole === 'admin' ? 'Administrador' : 'Iniciador'}</TableHead>
+                      <TableHead className="whitespace-nowrap">Administrador</TableHead>
                       <TableHead className="whitespace-nowrap">Ação/Descrição</TableHead>
                       <TableHead className="text-right whitespace-nowrap">Quantidade</TableHead>
                       <TableHead className="text-right whitespace-nowrap">Saldo Após</TableHead>
@@ -822,7 +820,7 @@ export default function Carteira() {
                 {submitting ? "Removendo..." : "Remover Créditos"}
               </Button>
             </DialogFooter>
-          </DialogContent>
+          </DialogFooter>
         </Dialog>
       )}
     </div>
