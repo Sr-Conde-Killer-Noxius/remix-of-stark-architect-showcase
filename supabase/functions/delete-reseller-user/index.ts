@@ -97,7 +97,6 @@ serve(async (req) => {
     console.log('User deleted successfully');
 
     // Enviar webhook para Acerto Certo e registrar histórico
-    // Esta parte agora é aguardada para garantir o registro
     let targetWebhookUrl = 'not_configured';
     const payload = {
       eventType: 'delete_user',
@@ -117,7 +116,7 @@ serve(async (req) => {
         targetWebhookUrl = config.webhook_url;
         console.log('Sending delete_user webhook to Acerto Certo:', targetWebhookUrl);
         
-        const webhookResponse = await fetch(targetWebhookUrl, { // AGORA AWAIT AQUI
+        const webhookResponse = await fetch(targetWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -138,7 +137,7 @@ serve(async (req) => {
     } finally {
       // Sempre logar no histórico, independentemente do sucesso ou falha do fetch
       try {
-        await supabaseAdmin
+        const { error: logInsertError } = await supabaseAdmin
           .from('acerto_certo_webhook_history')
           .insert({
             event_type: 'delete_user',
@@ -148,10 +147,17 @@ serve(async (req) => {
             response_body: responseBody,
             revenda_user_id: userId
           });
+        
+        if (logInsertError) {
+          console.error('Failed to log webhook history:', logInsertError);
+          // Re-throw the error to ensure the main function's catch block is hit
+          throw new Error(`Failed to log webhook history: ${logInsertError.message}`);
+        }
         console.log('Webhook history logged successfully');
       } catch (logError) {
-        console.error('Failed to log webhook history:', logError);
-        // Se o log falhar, a função principal ainda deve ter sucesso se a exclusão do usuário foi bem-sucedida.
+        console.error('Critical: Failed to log webhook history even after initial attempt:', logError);
+        // Re-throw this critical error as well
+        throw logError;
       }
     }
 

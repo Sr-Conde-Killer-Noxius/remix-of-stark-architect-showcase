@@ -194,7 +194,7 @@ serve(async (req) => {
 
           if (config?.webhook_url) {
             targetWebhookUrl = config.webhook_url;
-            const response = await fetch(targetWebhookUrl, { // AGORA AWAIT AQUI
+            const response = await fetch(targetWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
@@ -213,7 +213,7 @@ serve(async (req) => {
         } finally {
           // Sempre logar no histórico, independentemente do sucesso ou falha do fetch
           try {
-            const { error: historyError } = await supabaseAdmin.from('acerto_certo_webhook_history').insert({
+            const { error: logInsertError } = await supabaseAdmin.from('acerto_certo_webhook_history').insert({
               event_type: 'update_user_status',
               target_url: targetWebhookUrl,
               payload: webhookPayload,
@@ -221,11 +221,13 @@ serve(async (req) => {
               response_body: webhookResponseBody,
               revenda_user_id: userId
             });
-            if (historyError) {
-              console.error(`Failed to insert webhook history for update_user_status:`, historyError);
+            if (logInsertError) {
+              console.error(`Failed to insert webhook history for update_user_status:`, logInsertError);
+              throw new Error(`Failed to log webhook history: ${logInsertError.message}`);
             }
           } catch (logError) {
-            console.error('Failed to log webhook error during initial webhook processing error:', logError);
+            console.error('Critical: Failed to log webhook error during initial webhook processing error:', logError);
+            throw logError;
           }
         }
       }
@@ -233,7 +235,7 @@ serve(async (req) => {
       // If creditExpiryDate was updated, trigger check-expired-credits function
       if (creditExpiryDate !== undefined) {
         console.log(`creditExpiryDate updated for user ${userId}. Invoking check-expired-credits...`);
-        await (async () => { // AGORA AWAIT AQUI
+        await (async () => {
           try {
             const { data: checkResult, error: checkError } = await supabaseAdmin.functions.invoke(
               "check-expired-credits",
