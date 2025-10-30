@@ -176,6 +176,13 @@ serve(async (req) => {
       if (status !== undefined && currentStatus !== status && (status === 'inactive' || status === 'suspended' || status === 'active')) {
         console.log(`Status changed for user ${userId} from ${currentStatus} to ${status}. Sending webhook...`);
         
+        let targetWebhookUrl = 'not_configured'; // Default value
+        const webhookPayload = {
+          eventType: 'update_user_status',
+          userId: userId,
+          newStatus: status
+        };
+
         try {
           const { data: config } = await supabaseAdmin
             .from('webhook_configs')
@@ -184,14 +191,8 @@ serve(async (req) => {
             .maybeSingle();
 
           if (config?.webhook_url) {
-            const webhookPayload = {
-              eventType: 'update_user_status',
-              userId: userId,
-              newStatus: status
-            };
-
-            // Send webhook (fire and forget with async logging)
-            fetch(config.webhook_url, {
+            targetWebhookUrl = config.webhook_url;
+            fetch(targetWebhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(webhookPayload),
@@ -200,7 +201,7 @@ serve(async (req) => {
               const body = await response.text();
               const { error: historyError } = await supabaseAdmin.from('acerto_certo_webhook_history').insert({
                 event_type: 'update_user_status',
-                target_url: config.webhook_url,
+                target_url: targetWebhookUrl, // Use the determined targetWebhookUrl
                 payload: webhookPayload,
                 response_status_code: response.status,
                 response_body: body,
@@ -216,7 +217,7 @@ serve(async (req) => {
               console.error(`Failed to send update_user_status webhook for user ${userId}:`, fetchError.message);
               const { error: historyError } = await supabaseAdmin.from('acerto_certo_webhook_history').insert({
                 event_type: 'update_user_status',
-                target_url: config.webhook_url,
+                target_url: targetWebhookUrl, // Use the determined targetWebhookUrl
                 payload: webhookPayload,
                 response_status_code: 500,
                 response_body: fetchError.message,
@@ -228,10 +229,32 @@ serve(async (req) => {
               }
             });
           } else {
-            console.warn(`Acerto Certo webhook URL not configured. Skipping webhook for user ${userId}.`);
+            console.warn(`Acerto Certo webhook URL not configured. Skipping webhook for user ${userId}. Logging to history anyway.`);
+            // Log to history even if webhook URL is not configured
+            await supabaseAdmin.from('acerto_certo_webhook_history').insert({
+              event_type: 'update_user_status',
+              target_url: targetWebhookUrl, // Will be 'not_configured'
+              payload: webhookPayload,
+              response_status_code: 200, // Assume success for logging purposes if no webhook was sent
+              response_body: 'Webhook URL not configured, no external call made.',
+              revenda_user_id: userId
+            });
           }
         } catch (webhookError: any) {
           console.error(`Error during webhook preparation for user ${userId}:`, webhookError.message);
+          // Ensure logging even if initial config fetch fails
+          try {
+            await supabaseAdmin.from('acerto_certo_webhook_history').insert({
+              event_type: 'update_user_status',
+              target_url: targetWebhookUrl, // Will be 'not_configured' or the fetched URL if it failed later
+              payload: webhookPayload,
+              response_status_code: 500,
+              response_body: webhookError instanceof Error ? webhookError.message : 'Unknown error during webhook processing.',
+              revenda_user_id: userId
+            });
+          } catch (logError) {
+            console.error('Failed to log webhook error during initial webhook processing error:', logError);
+          }
         }
       }
 
