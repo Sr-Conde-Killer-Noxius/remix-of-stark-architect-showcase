@@ -45,7 +45,7 @@ export default function AcertoCertoIntegration() {
         .from('acerto_certo_webhook_history')
         .select('*')
         .order('sent_at', { ascending: false })
-        .limit(50);
+        .limit(100); // Aumentado o limite para 100 registros
 
       if (error) throw error;
       return data;
@@ -180,7 +180,7 @@ export default function AcertoCertoIntegration() {
           <CardHeader>
             <CardTitle>Últimos Eventos Enviados</CardTitle>
             <CardDescription>
-              Histórico das últimas 50 requisições enviadas ao Acerto Certo
+              Histórico das últimas 100 requisições enviadas ao Acerto Certo
             </CardDescription>
           </CardHeader>
           <CardContent>
