@@ -28,8 +28,8 @@ serve(async (req) => {
     console.log('Managing credits:', { targetUserId, amount });
 
     // Validate inputs
-    if (!targetUserId || amount === undefined || amount === null) {
-      throw new Error('Missing or invalid required fields (targetUserId or amount)');
+    if (!targetUserId || !amount) {
+      throw new Error('Missing or invalid required fields');
     }
 
     // Allow negative amounts for removal
@@ -37,7 +37,7 @@ serve(async (req) => {
       throw new Error('Amount cannot be zero');
     }
 
-    // Check if requesting user is authorized
+    // Check if requesting user is admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
@@ -64,38 +64,15 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check requesting user's role
+    // Check if requesting user is admin
     const { data: requestingRoleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', requestingUser.id)
       .maybeSingle();
 
-    const requestingRole = requestingRoleData?.role;
-
-    // Authorization logic
-    if (requestingRole === 'admin') {
-      // Admin can manage credits for any user
-      console.log('Admin user authorized to manage credits.');
-    } else if (requestingRole === 'master') {
-      // Master can only manage credits for users they created
-      const { data: targetUserProfile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('created_by, user_id')
-        .eq('user_id', targetUserId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error fetching target user profile:', profileError);
-        throw new Error('Error verifying target user permissions.');
-      }
-
-      if (!targetUserProfile || targetUserProfile.created_by !== requestingUser.id) {
-        throw new Error('Master users can only manage credits for users they created.');
-      }
-      console.log('Master user authorized to manage credits for their created user.');
-    } else {
-      throw new Error('Only admin and master users can manage credits.');
+    if (requestingRoleData?.role !== 'admin') {
+      throw new Error('Only admins can manage credits');
     }
 
     // Get or create user_credits record
@@ -142,21 +119,20 @@ serve(async (req) => {
       .from('credit_transactions')
       .insert({
         user_id: targetUserId,
-        transaction_type: amount > 0 ? 'credit_added' : 'credit_spent',
+        transaction_type: 'credit_added',
         amount: amount,
         balance_after: newBalance,
         description: amount > 0 
-          ? `${requestingRole === 'admin' ? 'Admin' : 'Master'} adicionou ${amount} crédito(s)`
-          : `${requestingRole === 'admin' ? 'Admin' : 'Master'} removeu ${Math.abs(amount)} crédito(s)`,
-        performed_by: requestingUser.id,
-        related_user_id: targetUserId // The user whose credit was affected
+          ? `Admin adicionou ${amount} crédito(s)`
+          : `Admin removeu ${Math.abs(amount)} crédito(s)`,
+        performed_by: requestingUser.id
       });
 
     if (transactionError) {
       throw transactionError;
     }
 
-    console.log('Credits managed successfully');
+    console.log('Credits added successfully');
 
     return new Response(
       JSON.stringify({ 
