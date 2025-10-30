@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, Plus, TrendingDown, TrendingUp, Repeat2 } from "lucide-react"; // Adicionado Repeat2 para o novo ícone
+import { Coins, Plus, TrendingDown, TrendingUp, Repeat2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface CreditData {
@@ -707,8 +707,8 @@ export default function Carteira() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Data</TableHead>
+                    {userRole === 'admin' && <TableHead className="whitespace-nowrap">Master</TableHead>} {/* Movido para cá */}
                     <TableHead className="whitespace-nowrap">Ação/Descrição</TableHead>
-                    {userRole === 'admin' && <TableHead className="whitespace-nowrap">Master</TableHead>}
                     <TableHead className="text-right whitespace-nowrap">Quantidade</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Saldo Após</TableHead>
                   </TableRow>
@@ -734,12 +734,12 @@ export default function Carteira() {
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap">{transaction.description}</TableCell>
                         {userRole === 'admin' && (
                           <TableCell className="text-muted-foreground whitespace-nowrap">
                             {transaction.master_profile?.full_name || 'N/A'}
                           </TableCell>
                         )}
+                        <TableCell className="whitespace-nowrap">{transaction.description}</TableCell> {/* Movido para cá */}
                         <TableCell className="text-right whitespace-nowrap">
                           <Badge variant="destructive">
                             {transaction.amount}
