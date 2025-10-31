@@ -940,7 +940,7 @@ export default function Users() {
       <main className="container mx-auto p-4 sm:p-6"> {/* Ajustado padding */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0"> {/* Ajustado para empilhar em telas pequenas */}
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Usuários Revendedores</h2> {/* Ajustado tamanho da fonte */}
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Usuários e Revendedores</h2> {/* Ajustado tamanho da fonte */}
             <p className="text-sm sm:text-base text-muted-foreground"> {/* Ajustado tamanho da fonte */}
               Gerencie os revendedores e Usuário do sistema
             </p>
