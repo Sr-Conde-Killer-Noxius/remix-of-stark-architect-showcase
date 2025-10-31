@@ -3553,7 +3553,7 @@ export default function Revenda() {
           <div>
             <h2 className="text-2xl font-bold text-foreground">Revendedores</h2>
             <p className="text-muted-foreground">
-              Gerencie os revendedores do sistema
+              Gerencie os Usuários e Revendedores do sistema
             </p>
           </div>
           <Button onClick={() => setDialogOpen(true)}>
