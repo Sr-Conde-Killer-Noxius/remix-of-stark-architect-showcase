@@ -62,7 +62,7 @@ export function AppSidebar() {
             <span className="text-lg font-bold text-primary-foreground">RS</span>
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-sidebar-foreground">Painel Revenda</h2>
+            <h2 className="text-sm font-semibold text-sidebar-foreground">Painel de Controle</h2>
             <p className="text-xs text-muted-foreground">Acerto Certo</p>
             <p className="text-xs text-muted-foreground">1.0.2.0.0</p>
           </div>

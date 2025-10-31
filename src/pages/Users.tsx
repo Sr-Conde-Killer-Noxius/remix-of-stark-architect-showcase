@@ -940,9 +940,9 @@ export default function Users() {
       <main className="container mx-auto p-4 sm:p-6"> {/* Ajustado padding */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0"> {/* Ajustado para empilhar em telas pequenas */}
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Revendedores</h2> {/* Ajustado tamanho da fonte */}
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Usuários Revendedores</h2> {/* Ajustado tamanho da fonte */}
             <p className="text-sm sm:text-base text-muted-foreground"> {/* Ajustado tamanho da fonte */}
-              Gerencie os revendedores do sistema
+              Gerencie os revendedores e Usuário do sistema
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
@@ -1288,7 +1288,7 @@ export default function Users() {
           <DialogHeader>
             <DialogTitle>Novo Revendedor</DialogTitle>
             <DialogDescription>
-              Crie um novo usuário revendedor no sistema
+              Crie um novo usuário no sistema
             </DialogDescription>
           </DialogHeader>
 
@@ -1377,7 +1377,7 @@ export default function Users() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                {submitting ? "Criando..." : "Criar Revendedor"}
+                {submitting ? "Criando..." : "Criar Usuário"}
               </Button>
             </DialogFooter>
           </form>
