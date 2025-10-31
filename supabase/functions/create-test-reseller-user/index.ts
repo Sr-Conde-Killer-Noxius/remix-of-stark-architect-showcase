@@ -25,9 +25,9 @@ serve(async (req) => {
     });
 
     // Get the request body
-    const { email, password, fullName, resellerRole, isTestReseller, creditExpiryDate } = await req.json();
+    const { email, password, fullName, resellerRole } = await req.json();
 
-    console.log('Creating reseller user:', { email, fullName, resellerRole, isTestReseller, creditExpiryDate });
+    console.log('Creating TEST reseller user:', { email, fullName, resellerRole });
 
     // Validate inputs
     if (!email || !password || !fullName || !resellerRole) {
@@ -119,27 +119,12 @@ serve(async (req) => {
 
     console.log('User created successfully:', newUser.user?.id);
 
-    // Set credit expiry date based on user type
-    let finalCreditExpiryDate: Date;
-    if (isTestReseller) {
-      if (creditExpiryDate && typeof creditExpiryDate === 'string') {
-        // Use provided YYYY-MM-DD and normalize to 12:00 UTC to avoid TZ shifts
-        const normalized = new Date(`${creditExpiryDate}T12:00:00.000Z`);
-        finalCreditExpiryDate = normalized;
-        console.log('Test reseller - using provided creditExpiryDate:', normalized.toISOString());
-      } else {
-        // For test resellers without explicit date, set expiry to current date (normalized)
-        const now = new Date();
-        now.setUTCHours(12, 0, 0, 0);
-        finalCreditExpiryDate = now;
-        console.log('Test reseller - setting credit expiry to current date:', finalCreditExpiryDate.toISOString());
-      }
-    } else {
-      // For normal resellers, set expiry to 30 days from now
-      finalCreditExpiryDate = new Date();
-      finalCreditExpiryDate.setDate(finalCreditExpiryDate.getDate() + 30);
-      console.log('Normal reseller - setting credit expiry to 30 days from now:', finalCreditExpiryDate.toISOString());
-    }
+    // CRITICAL: Set credit expiry date to TODAY (current date) for test resellers
+    const currentDate = new Date();
+    currentDate.setUTCHours(12, 0, 0, 0); // Normalize to 12:00 UTC
+    const creditExpiryDate = currentDate.toISOString();
+    
+    console.log('Test reseller - setting credit expiry to TODAY:', creditExpiryDate);
 
     // Create profile with created_by tracking and email
     const { error: profileError } = await supabaseAdmin
@@ -150,7 +135,7 @@ serve(async (req) => {
         email: email,
         created_by: requestingUser.id,
         status: 'active',
-        credit_expiry_date: finalCreditExpiryDate.toISOString()
+        credit_expiry_date: creditExpiryDate
       }, { onConflict: 'user_id' });
 
     if (profileError) {
@@ -158,7 +143,7 @@ serve(async (req) => {
       throw profileError;
     }
 
-    console.log('Profile created');
+    console.log('Profile created with credit expiry date:', creditExpiryDate);
 
     // Insert role in user_roles table
     const { error: roleError } = await supabaseAdmin
@@ -175,52 +160,8 @@ serve(async (req) => {
 
     console.log('Role assigned successfully');
 
-    // Check and deduct credit for master users (skip for test resellers)
-    if (requestingRole === 'master' && !isTestReseller) {
-      const { data: creditData, error: creditError } = await supabaseAdmin
-        .from('user_credits')
-        .select('balance')
-        .eq('user_id', requestingUser.id)
-        .maybeSingle();
-
-      if (creditError) {
-        console.error('Error fetching credits:', creditError);
-        throw new Error('Erro ao verificar créditos');
-      }
-
-      if (!creditData || creditData.balance < 1) {
-        throw new Error('Créditos insuficientes para criar usuário');
-      }
-
-      // Deduct 1 credit
-      const newBalance = creditData.balance - 1;
-      const { error: updateError } = await supabaseAdmin
-        .from('user_credits')
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq('user_id', requestingUser.id);
-
-      if (updateError) {
-        console.error('Error updating credits:', updateError);
-        throw updateError;
-      }
-
-      // Record transaction
-      await supabaseAdmin
-        .from('credit_transactions')
-        .insert({
-          user_id: requestingUser.id,
-          transaction_type: 'credit_spent',
-          amount: -1,
-          balance_after: newBalance,
-          description: `Criação do usuário ${fullName}`,
-          related_user_id: newUser.user!.id,
-          performed_by: requestingUser.id
-        });
-
-      console.log('Credit deducted successfully');
-    } else if (isTestReseller) {
-      console.log('Test reseller creation - skipping credit deduction');
-    }
+    // Test resellers do NOT consume credits
+    console.log('Test reseller creation - skipping credit deduction');
 
     // Enviar webhook para Acerto Certo (não bloqueia a resposta de sucesso)
     (async () => {
@@ -241,25 +182,23 @@ serve(async (req) => {
             .eq('user_id', newUser.user!.id)
             .single();
 
-          // Format credit_expiry_date to YYYY-MM-DD for the webhook
-          const formattedExpiryDate = profile?.credit_expiry_date 
-            ? new Date(profile.credit_expiry_date).toISOString().split('T')[0] 
-            : null;
+          // Format credit_expiry_date to YYYY-MM-DD for the webhook (CURRENT DATE)
+          const todayFormatted = new Date().toISOString().split('T')[0];
 
           // Payload para o Acerto Certo
-          // ATENÇÃO: Enviar senha em texto plano é inseguro. Idealmente o sistema 
-          // receptor deveria gerar senha temporária ou usar fluxo de redefinição.
           const payload = {
             eventType: 'create_user',
             userId: newUser.user!.id,
             email: email,
             password: password,
             fullName: fullName,
-            vencimento: formattedExpiryDate,
+            vencimento: todayFormatted, // ALWAYS TODAY for test resellers
             role: 'user',
             phone: profile?.phone || null,
             tax_id: profile?.cpf || null
           };
+
+          console.log('Webhook payload with vencimento (TODAY):', todayFormatted);
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -329,8 +268,8 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the reseller user';
-    console.error('Error in create-reseller-user function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the test reseller user';
+    console.error('Error in create-test-reseller-user function:', error);
     return new Response(
       JSON.stringify({ 
         error: errorMessage

@@ -880,12 +880,12 @@ export default function Carteira() {
         <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {userRole === 'admin' ? 'Adicionar Créditos' : 'Transferir Créditos para Revenda Master'}
+              {userRole === 'admin' ? 'Adicionar Créditos' : 'Transferir Créditos para Usuário Master'}
             </DialogTitle>
             <DialogDescription>
-              {userRole === 'admin' 
+              {userRole === 'admin'
                 ? 'Adicione créditos a um usuário master específico'
-                : 'Transfira créditos do seu saldo para uma revenda master que você criou'}
+                : 'Transfira créditos do seu saldo para um usuário master que você criou'}
             </DialogDescription>
           </DialogHeader>
 

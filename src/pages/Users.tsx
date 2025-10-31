@@ -118,12 +118,13 @@ interface ResellerWithRole extends ResellerProfile {
   role: string;
 }
 
-export default function Revenda() {
+export default function Users() {
   const { userRole } = useAuth();
   const [resellers, setResellers] = useState<ResellerWithRole[]>([]);
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
@@ -381,13 +382,79 @@ export default function Revenda() {
           error.message?.includes("email_exists")) {
         errorMessage = "Este e-mail já está cadastrado no sistema";
       } else if (error.message?.includes("Only master users")) {
-        errorMessage = "Apenas usuários master podem criar revendedores";
+        errorMessage = "Apenas usuários master podem Criar Usuários";
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       toast({
-        title: "Erro ao criar revendedor",
+        title: "Erro ao Criar Usuário",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onTestSubmit = async (data: ResellerFormData) => {
+    try {
+      setSubmitting(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
+        throw new Error("Não autenticado");
+      }
+
+      const { data: result, error } = await supabase.functions.invoke(
+        "create-test-reseller-user",
+        {
+          body: {
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            resellerRole: data.resellerRole,
+          },
+          headers: {
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          }
+        }
+      );
+
+      if (error) throw error;
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      // Get current date for display
+      const currentDate = format(new Date(), "yyyy-MM-dd");
+
+      toast({
+        title: "Revendedor teste criado com sucesso!",
+        description: `${data.fullName} foi adicionado ao sistema com vencimento em ${currentDate}.`,
+      });
+
+      setTestDialogOpen(false);
+      form.reset();
+      loadResellers();
+    } catch (error: any) {
+      console.error("Error creating test reseller:", error);
+      
+      let errorMessage = "Ocorreu um erro ao criar o revendedor teste";
+      
+      if (error.message?.includes("already been registered") || 
+          error.message?.includes("email_exists")) {
+        errorMessage = "Este e-mail já está cadastrado no sistema";
+      } else if (error.message?.includes("Only master users")) {
+        errorMessage = "Apenas usuários master podem Criar Usuários";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Erro ao criar Usuário teste",
         description: errorMessage,
         variant: "destructive",
       });
@@ -684,7 +751,7 @@ export default function Revenda() {
       }
 
       toast({
-        title: "Revenda renovada com sucesso!",
+        title: "Usuário renovado com sucesso!",
         description: `Adicionado 1 mês de atividade para ${selectedReseller.full_name}.`,
       });
 
@@ -707,8 +774,8 @@ export default function Revenda() {
     } catch (error: any) {
       console.error("Error renewing credit:", error);
       toast({
-        title: "Erro ao renovar revenda",
-        description: error.message || "Ocorreu um erro ao renovar a revenda",
+        title: "Erro ao renovar usuário",
+        description: error.message || "Ocorreu um erro ao renovar o usuário",
         variant: "destructive",
       });
     } finally {
@@ -868,7 +935,7 @@ export default function Revenda() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader title="Gerenciar Revendedores" />
+      <AppHeader title="Gerenciar Revendedores e Usuários" />
 
       <main className="container mx-auto p-4 sm:p-6"> {/* Ajustado padding */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0"> {/* Ajustado para empilhar em telas pequenas */}
@@ -878,10 +945,16 @@ export default function Revenda() {
               Gerencie os revendedores do sistema
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="w-full sm:w-auto"> {/* Botão ocupa largura total em mobile */}
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Revendedor
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button onClick={() => setTestDialogOpen(true)} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Usuário Teste
+            </Button>
+            <Button onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Usuário
+            </Button>
+          </div>
         </div>
 
         <div className="rounded-lg border bg-card">
@@ -1080,7 +1153,7 @@ export default function Revenda() {
                               disabled={!canRenewCredit}
                             >
                               <RefreshCw className="mr-2 h-4 w-4" />
-                              Renovar Revenda
+                              Renovar Usuário
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setSelectedReseller(reseller);
@@ -1100,6 +1173,114 @@ export default function Revenda() {
           </div> {/* Fim do contêiner overflow-x-auto */}
         </div>
       </main>
+
+      {/* Create Dialog - Usuário Teste */}
+      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário Teste</DialogTitle>
+            <DialogDescription>
+              Crie um novo usuário de teste com vencimento de crédito na data atual
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={form.handleSubmit(onTestSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-fullName">Nome Completo</Label>
+              <Input
+                id="test-fullName"
+                {...form.register("fullName")}
+                placeholder="João Silva"
+                className="w-full"
+              />
+              {form.formState.errors.fullName && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.fullName.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="test-email">E-mail</Label>
+              <Input
+                id="test-email"
+                type="email"
+                {...form.register("email")}
+                placeholder="joao@exemplo.com"
+                className="w-full"
+              />
+              {form.formState.errors.email && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="test-password">Senha</Label>
+              <Input
+                id="test-password"
+                type="password"
+                {...form.register("password")}
+                placeholder="••••••••"
+                className="w-full"
+              />
+              {form.formState.errors.password && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.password.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="test-resellerRole">Nível</Label>
+              <Select
+                onValueChange={(value) =>
+                  form.setValue("resellerRole", value as "admin" | "master" | "reseller")
+                }
+                defaultValue="reseller"
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione o nível" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userRole === 'admin' && (
+                    <SelectItem value="admin">Admin</SelectItem>
+                  )}
+                  <SelectItem value="master">Usuário Master</SelectItem>
+                  <SelectItem value="reseller">Usuário</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.formState.errors.resellerRole && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.resellerRole.message}
+                </p>
+              )}
+            </div>
+
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-sm text-muted-foreground">
+                <strong>Vencimento do Crédito:</strong> {format(new Date(), "dd/MM/yyyy")} (Data atual)
+              </p>
+            </div>
+
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setTestDialogOpen(false)}
+                disabled={submitting}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+                {submitting ? "Criando..." : "Criar Usuário Teste"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1174,8 +1355,8 @@ export default function Revenda() {
                   {userRole === 'admin' && (
                     <SelectItem value="admin">Admin</SelectItem>
                   )}
-                  <SelectItem value="master">Revenda Master</SelectItem>
-                  <SelectItem value="reseller">Revenda</SelectItem>
+                  <SelectItem value="master">Usuário Master</SelectItem>
+                  <SelectItem value="reseller">Usuário</SelectItem>
                 </SelectContent>
               </Select>
               {form.formState.errors.resellerRole && (
@@ -1196,7 +1377,7 @@ export default function Revenda() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                {submitting ? "Criando..." : "Criar Revendedor"}
+                {submitting ? "Criando..." : "Criar Usuário"}
               </Button>
             </DialogFooter>
           </form>
@@ -1271,7 +1452,7 @@ export default function Revenda() {
                 className="w-full"
               />
               {editForm.formState.errors.password && (
-                <p className className="text-sm text-destructive">
+                <p className="text-sm text-destructive">
                   {editForm.formState.errors.password.message}
                 </p>
               )}
@@ -1365,9 +1546,9 @@ export default function Revenda() {
       <AlertDialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
         <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
           <AlertDialogHeader>
-            <AlertDialogTitle>Renovar Revenda</AlertDialogTitle>
+            <AlertDialogTitle>Renovar Usuário</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja renovar a revenda de {selectedReseller?.full_name}?
+              Deseja renovar o usuário {selectedReseller?.full_name}?
               <br /><br />
               Isso irá:
               <ul className="list-disc list-inside mt-2">

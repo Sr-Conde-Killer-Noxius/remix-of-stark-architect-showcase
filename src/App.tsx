@@ -10,7 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Planos from "./pages/Planos";
 import Profile from "./pages/Profile"; // Updated import
-import Revenda from "./pages/Revenda";
+import Users from "./pages/Users";
 import Carteira from "./pages/Carteira";
 import Templates from "./pages/Templates";
 import Webhooks from "./pages/Webhooks";
@@ -42,7 +42,7 @@ const App = () => (
                         <Routes>
                           <Route path="/" element={<Index />} />
                           <Route path="/planos" element={<Planos />} />
-                          <Route path="/revenda" element={<Revenda />} />
+                          <Route path="/users" element={<Users />} />
                           <Route path="/carteira" element={<Carteira />} />
                           <Route path="/templates" element={<Templates />} />
                           <Route path="/whatsapp" element={<WhatsAppConnection />} />

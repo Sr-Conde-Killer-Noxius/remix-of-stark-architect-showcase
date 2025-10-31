@@ -1,1 +1,34 @@
 project_id = "korfuodesmuvloncrpmn"
+
+[functions.create-test-reseller-user]
+verify_jwt = true
+
+[functions.create-reseller-user]
+verify_jwt = true
+
+[functions.delete-reseller-user]
+verify_jwt = true
+
+[functions.update-reseller-user]
+verify_jwt = true
+
+[functions.manage-credits]
+verify_jwt = true
+
+[functions.transfer-credits-master-to-master]
+verify_jwt = true
+
+[functions.renew-reseller-credit]
+verify_jwt = true
+
+[functions.get-master-user-details]
+verify_jwt = true
+
+[functions.check-expired-credits]
+verify_jwt = false
+
+[functions.evolution-webhook-receiver]
+verify_jwt = false
+
+[functions.log-n8n-qr-interaction]
+verify_jwt = false

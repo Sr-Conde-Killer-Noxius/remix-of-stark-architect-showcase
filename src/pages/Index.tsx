@@ -9,7 +9,7 @@ export default function Index() {
   useEffect(() => {
     // Redirect based on user role
     if (userRole === 'admin' || userRole === 'master') {
-      navigate('/revenda', { replace: true });
+      navigate('/users', { replace: true });
     } else if (userRole === 'reseller') {
       navigate('/profile', { replace: true }); // Updated redirect to /profile
     }
