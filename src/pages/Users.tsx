@@ -942,7 +942,7 @@ export default function Users() {
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Usuários e Revendedores</h2> {/* Ajustado tamanho da fonte */}
             <p className="text-sm sm:text-base text-muted-foreground"> {/* Ajustado tamanho da fonte */}
-              Gerencie os revendedores e Usuário do sistema
+              Gerencie os Revendedores e Usuário do sistema
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
