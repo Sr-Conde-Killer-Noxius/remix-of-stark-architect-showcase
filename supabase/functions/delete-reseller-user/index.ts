@@ -89,11 +89,25 @@ serve(async (req) => {
     // --- INÍCIO DA LÓGICA REORDENADA ---
 
     // 1. Preparar payload do webhook e variáveis de log de histórico
+    const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
+    if (!acertoCertoApiKey) {
+      console.warn('⚠️ ACERTO_CERTO_API_KEY não configurado. Webhook pode falhar com 401.');
+    }
+
     let targetWebhookUrl = 'not_configured';
     const payload = {
       eventType: 'delete_user',
       userId: userId
     };
+    
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      ...(acertoCertoApiKey && {
+        'Authorization': `Bearer ${acertoCertoApiKey}`,
+        'apikey': acertoCertoApiKey
+      })
+    };
+
     let statusCode = 200;
     let responseBody = 'Webhook URL not configured, no external call made.';
 
@@ -111,7 +125,7 @@ serve(async (req) => {
         
         const webhookResponse = await fetch(targetWebhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders,
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(10000)
         });
@@ -137,6 +151,7 @@ serve(async (req) => {
             event_type: 'delete_user',
             target_url: targetWebhookUrl,
             payload: payload,
+            request_headers: requestHeaders,
             response_status_code: statusCode,
             response_body: responseBody,
             revenda_user_id: userId // userId ainda existe em profiles neste ponto

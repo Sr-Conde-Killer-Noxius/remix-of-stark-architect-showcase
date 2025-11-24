@@ -225,6 +225,11 @@ serve(async (req) => {
     // Enviar webhook para Acerto Certo (não bloqueia a resposta de sucesso)
     (async () => {
       try {
+        const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
+        if (!acertoCertoApiKey) {
+          console.warn('⚠️ ACERTO_CERTO_API_KEY não configurado. Webhook pode falhar com 401.');
+        }
+
         const { data: config } = await supabaseAdmin
           .from('webhook_configs')
           .select('webhook_url')
@@ -243,10 +248,11 @@ serve(async (req) => {
 
           // Format credit_expiry_date to YYYY-MM-DD for the webhook
           const formattedExpiryDate = profile?.credit_expiry_date 
-            ? new Date(profile.credit_expiry_date).toISOString().split('T')[0] 
+            ? new Date(profile.credit_expiry_date).toISOString().split('T')[0]
             : null;
 
-          // Payload para o Acerto Certo
+          console.log('Webhook payload with vencimento:', formattedExpiryDate);
+
           // ATENÇÃO: Enviar senha em texto plano é inseguro. Idealmente o sistema 
           // receptor deveria gerar senha temporária ou usar fluxo de redefinição.
           const payload = {
@@ -261,12 +267,20 @@ serve(async (req) => {
             tax_id: profile?.cpf || null
           };
 
+          const requestHeaders = {
+            'Content-Type': 'application/json',
+            ...(acertoCertoApiKey && {
+              'Authorization': `Bearer ${acertoCertoApiKey}`,
+              'apikey': acertoCertoApiKey
+            })
+          };
+
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
           const webhookResponse = await fetch(config.webhook_url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: requestHeaders,
             body: JSON.stringify(payload),
             signal: controller.signal
           });
@@ -285,6 +299,7 @@ serve(async (req) => {
               event_type: 'create_user',
               target_url: config.webhook_url,
               payload: payload,
+              request_headers: requestHeaders,
               response_status_code: statusCode,
               response_body: responseBody,
               revenda_user_id: newUser.user!.id
@@ -297,6 +312,15 @@ serve(async (req) => {
       } catch (webhookError) {
         console.error('Error sending webhook to Acerto Certo:', webhookError);
         
+        const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
+        const fallbackHeaders = {
+          'Content-Type': 'application/json',
+          ...(acertoCertoApiKey && {
+            'Authorization': `Bearer ${acertoCertoApiKey}`,
+            'apikey': acertoCertoApiKey
+          })
+        };
+
         // Registrar falha no histórico
         try {
           await supabaseAdmin
@@ -305,6 +329,7 @@ serve(async (req) => {
               event_type: 'create_user',
               target_url: 'unknown',
               payload: { eventType: 'create_user', userId: newUser.user!.id },
+              request_headers: fallbackHeaders,
               response_status_code: 500,
               response_body: webhookError instanceof Error ? webhookError.message : 'Unknown error',
               revenda_user_id: newUser.user!.id

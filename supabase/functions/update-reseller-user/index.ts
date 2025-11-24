@@ -176,12 +176,26 @@ serve(async (req) => {
       if (status !== undefined && currentStatus !== status && (status === 'inactive' || status === 'suspended' || status === 'active')) {
         console.log(`Status changed for user ${userId} from ${currentStatus} to ${status}. Sending webhook...`);
         
+        const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
+        if (!acertoCertoApiKey) {
+          console.warn('⚠️ ACERTO_CERTO_API_KEY não configurado. Webhook pode falhar com 401.');
+        }
+
         let targetWebhookUrl = 'not_configured';
         const webhookPayload = {
           eventType: 'update_user_status',
           userId: userId,
           newStatus: status
         };
+
+        const requestHeaders = {
+          'Content-Type': 'application/json',
+          ...(acertoCertoApiKey && {
+            'Authorization': `Bearer ${acertoCertoApiKey}`,
+            'apikey': acertoCertoApiKey
+          })
+        };
+
         let webhookStatusCode = 200;
         let webhookResponseBody = 'Webhook URL not configured, no external call made.';
 
@@ -196,7 +210,7 @@ serve(async (req) => {
             targetWebhookUrl = config.webhook_url;
             const response = await fetch(targetWebhookUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: requestHeaders,
               body: JSON.stringify(webhookPayload),
               signal: AbortSignal.timeout(10000)
             });
@@ -217,6 +231,7 @@ serve(async (req) => {
               event_type: 'update_user_status',
               target_url: targetWebhookUrl,
               payload: webhookPayload,
+              request_headers: requestHeaders,
               response_status_code: webhookStatusCode,
               response_body: webhookResponseBody,
               revenda_user_id: userId

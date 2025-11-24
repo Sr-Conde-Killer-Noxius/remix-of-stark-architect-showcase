@@ -10,7 +10,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { JsonViewDialog } from "@/components/JsonViewDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, ExternalLink } from "lucide-react";
+import { Loader2, Save, ExternalLink, Shield } from "lucide-react";
+
+// Tipo estendido para incluir request_headers
+interface WebhookHistoryItem {
+  id: string;
+  sent_at: string;
+  event_type: string;
+  target_url: string;
+  payload: any;
+  request_headers?: Record<string, string> | null;
+  response_status_code: number | null;
+  response_body: string | null;
+  revenda_user_id: string | null;
+}
 
 export default function AcertoCertoIntegration() {
   const { toast } = useToast();
@@ -45,10 +58,10 @@ export default function AcertoCertoIntegration() {
         .from('acerto_certo_webhook_history')
         .select('*')
         .order('sent_at', { ascending: false })
-        .limit(100); // Aumentado o limite para 100 registros
+        .limit(100);
 
       if (error) throw error;
-      return data;
+      return data as WebhookHistoryItem[];
     }
   });
 
@@ -184,19 +197,37 @@ export default function AcertoCertoIntegration() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Aviso de segurança para admins */}
+            <div className="rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                    🔐 Acesso Administrativo Completo
+                  </h4>
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    Como administrador, você pode visualizar todos os detalhes das requisições, 
+                    incluindo os headers de autorização enviados. Estes dados são sensíveis e 
+                    devem ser mantidos confidenciais.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {loadingHistory ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : history && history.length > 0 ? (
-              <div className="rounded-md border overflow-x-auto"> {/* Adicionado overflow-x-auto */}
-                <Table className="min-w-max"> {/* Adicionado min-w-max */}
+              <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-max">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="whitespace-nowrap">Enviado em</TableHead>
                       <TableHead className="whitespace-nowrap">Tipo Evento</TableHead>
                       <TableHead className="whitespace-nowrap">URL Destino</TableHead>
                       <TableHead className="whitespace-nowrap">Status Resposta</TableHead>
+                      <TableHead className="whitespace-nowrap">Headers Enviados</TableHead>
                       <TableHead className="whitespace-nowrap">Payload</TableHead>
                       <TableHead className="whitespace-nowrap">Resposta</TableHead>
                     </TableRow>
@@ -216,7 +247,7 @@ export default function AcertoCertoIntegration() {
                               : 'Atualizar Status'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate"> {/* Ajustado max-w para truncar */}
+                        <TableCell className="max-w-[150px] truncate">
                           <a 
                             href={item.target_url} 
                             target="_blank" 
@@ -224,11 +255,22 @@ export default function AcertoCertoIntegration() {
                             className="flex items-center gap-1 text-primary hover:underline"
                           >
                             {item.target_url}
-                            <ExternalLink className="h-3 w-3 flex-shrink-0" /> {/* flex-shrink-0 para evitar que o ícone encolha */}
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
                           </a>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {getStatusBadge(item.response_status_code)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {item.request_headers ? (
+                            <JsonViewDialog 
+                              data={item.request_headers} 
+                              triggerLabel="Ver Headers"
+                              title="Headers Enviados"
+                            />
+                          ) : (
+                            <Badge variant="outline">Sem headers</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <JsonViewDialog 
