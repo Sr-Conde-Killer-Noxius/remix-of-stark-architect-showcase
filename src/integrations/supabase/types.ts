@@ -19,6 +19,7 @@ export type Database = {
           event_type: string
           id: string
           payload: Json | null
+          request_headers: Json | null
           response_body: string | null
           response_status_code: number | null
           revenda_user_id: string | null
@@ -29,6 +30,7 @@ export type Database = {
           event_type: string
           id?: string
           payload?: Json | null
+          request_headers?: Json | null
           response_body?: string | null
           response_status_code?: number | null
           revenda_user_id?: string | null
@@ -39,6 +41,7 @@ export type Database = {
           event_type?: string
           id?: string
           payload?: Json | null
+          request_headers?: Json | null
           response_body?: string | null
           response_status_code?: number | null
           revenda_user_id?: string | null
