@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  userRole: 'admin' | 'master' | 'reseller' | null;
+  userRole: 'admin' | 'master' | 'reseller' | 'cliente' | null;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<'admin' | 'master' | 'reseller' | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'master' | 'reseller' | 'cliente' | null>(null);
   const navigate = useNavigate();
 
   const fetchUserRole = async (userId: string) => {
@@ -31,10 +31,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       
       if (error) throw error;
-      setUserRole(data?.role || 'reseller');
+      setUserRole(data?.role || 'cliente');
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole('reseller');
+      setUserRole('cliente');
     }
   };
 

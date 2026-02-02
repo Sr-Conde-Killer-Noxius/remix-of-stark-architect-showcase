@@ -69,12 +69,12 @@ serve(async (req) => {
 
     const requestingRole = requestingRoleData?.role;
 
-    if (!requestingRole || !['admin', 'master'].includes(requestingRole)) {
-      throw new Error('Only admin and master users can delete accounts');
+    if (!requestingRole || !['admin', 'master', 'reseller'].includes(requestingRole)) {
+      throw new Error('Only admin, master and reseller users can delete accounts');
     }
 
-    // For masters, verify they created this user
-    if (requestingRole === 'master') {
+    // For masters and resellers, verify they created this user
+    if (requestingRole === 'master' || requestingRole === 'reseller') {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
         .select('created_by')

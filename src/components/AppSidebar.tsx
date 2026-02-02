@@ -18,7 +18,8 @@ import { useAllPageAccess } from "@/hooks/usePageAccessControl";
 
 const allMenuItems = [
   { title: "Meu Perfil", url: "/profile", icon: User },
-  { title: "Usuários", url: "/users", icon: UsersRound },
+  { title: "Revendas", url: "/revendas", icon: UsersRound },
+  { title: "Clientes", url: "/users", icon: UsersRound },
   { title: "Planos", url: "/planos", icon: Package },
   { title: "Carteira", url: "/carteira", icon: Wallet },
   { title: "Templates", url: "/templates", icon: MessageSquare },
@@ -39,7 +40,7 @@ export function AppSidebar() {
       ];
     }
     
-    if (userRole === 'master' || userRole === 'reseller') {
+    if (userRole === 'master' || userRole === 'reseller' || userRole === 'cliente') {
       const allowedUrls = allowedPages.map((p) => p.page_url);
       
       const alwaysAvailable = ['/', '/profile'];

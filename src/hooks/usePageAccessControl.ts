@@ -7,7 +7,7 @@ export interface PageAccessControl {
   page_key: string;
   page_title: string;
   page_url: string;
-  role: "master" | "reseller";
+  role: "master" | "reseller" | "cliente";
   is_enabled: boolean;
 }
 
@@ -19,7 +19,7 @@ export function usePageAccess(userRole: string | null, pageUrl: string) {
       // Admin sempre tem acesso
       if (userRole === "admin") return true;
       
-      if (!userRole || (userRole !== "master" && userRole !== "reseller")) {
+      if (!userRole || (userRole !== "master" && userRole !== "reseller" && userRole !== "cliente")) {
         return false;
       }
 
@@ -37,7 +37,7 @@ export function usePageAccess(userRole: string | null, pageUrl: string) {
 
       return data?.is_enabled ?? false;
     },
-    enabled: !!userRole && (userRole === "admin" || userRole === "master" || userRole === "reseller"),
+    enabled: !!userRole && (userRole === "admin" || userRole === "master" || userRole === "reseller" || userRole === "cliente"),
     staleTime: 5 * 60 * 1000, // 5 minutos
     retry: false,
   });
@@ -51,7 +51,7 @@ export function useAllPageAccess(userRole: string | null) {
       // Admin sempre tem acesso a tudo
       if (userRole === "admin") return [];
       
-      if (!userRole || (userRole !== "master" && userRole !== "reseller")) {
+      if (!userRole || (userRole !== "master" && userRole !== "reseller" && userRole !== "cliente")) {
         return [];
       }
 
@@ -69,7 +69,7 @@ export function useAllPageAccess(userRole: string | null) {
 
       return (data as PageAccessControl[]) ?? [];
     },
-    enabled: !!userRole && (userRole === "admin" || userRole === "master" || userRole === "reseller"),
+    enabled: !!userRole && (userRole === "admin" || userRole === "master" || userRole === "reseller" || userRole === "cliente"),
     staleTime: 5 * 60 * 1000, // 5 minutos
     retry: false,
   });

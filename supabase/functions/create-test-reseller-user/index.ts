@@ -34,8 +34,8 @@ serve(async (req) => {
       throw new Error('Missing required fields');
     }
 
-    if (!['admin', 'master', 'reseller'].includes(resellerRole)) {
-      throw new Error('Invalid reseller role');
+    if (!['admin', 'master', 'reseller', 'cliente'].includes(resellerRole)) {
+      throw new Error('Invalid role');
     }
 
     // Check if the requesting user is a master
@@ -79,13 +79,18 @@ serve(async (req) => {
     const requestingRole = requestingRoleData?.role;
 
     // Validate permissions based on role hierarchy
-    if (!requestingRole || !['admin', 'master'].includes(requestingRole)) {
-      throw new Error('Only admin and master users can create accounts');
+    if (!requestingRole || !['admin', 'master', 'reseller'].includes(requestingRole)) {
+      throw new Error('Only admin, master and reseller users can create test accounts');
     }
 
     // Masters cannot create admins
     if (requestingRole === 'master' && resellerRole === 'admin') {
       throw new Error('Masters cannot create admin accounts');
+    }
+
+    // Resellers can only create cliente
+    if (requestingRole === 'reseller' && resellerRole !== 'cliente') {
+      throw new Error('Resellers can only create cliente accounts');
     }
 
     // Create the user using admin API

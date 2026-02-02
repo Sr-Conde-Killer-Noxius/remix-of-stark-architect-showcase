@@ -9,8 +9,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Planos from "./pages/Planos";
-import Profile from "./pages/Profile"; // Updated import
-import Users from "./pages/Users";
+import Profile from "./pages/Profile";
+import Clientes from "./pages/Clientes";
+import Revendas from "./pages/Revendas";
 import Carteira from "./pages/Carteira";
 import Templates from "./pages/Templates";
 import Webhooks from "./pages/Webhooks";
@@ -42,13 +43,14 @@ const App = () => (
                         <Routes>
                           <Route path="/" element={<Index />} />
                           <Route path="/planos" element={<Planos />} />
-                          <Route path="/users" element={<Users />} />
+                          <Route path="/users" element={<Clientes />} />
+                          <Route path="/revendas" element={<Revendas />} />
                           <Route path="/carteira" element={<Carteira />} />
                           <Route path="/templates" element={<Templates />} />
                           <Route path="/whatsapp" element={<WhatsAppConnection />} />
                           <Route path="/webhooks" element={<Webhooks />} />
                           <Route path="/settings/acerto-certo-integration" element={<AcertoCertoIntegration />} />
-                          <Route path="/profile" element={<Profile />} /> {/* Updated route */}
+                          <Route path="/profile" element={<Profile />} />
                           <Route path="/controlepages" element={<ControlPages />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

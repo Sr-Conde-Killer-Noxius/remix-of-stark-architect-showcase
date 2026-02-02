@@ -39,7 +39,7 @@ serve(async (req) => {
 
     let isServiceRoleCall = false;
     let requestingUser: { id: string } | null = null;
-    let requestingRole: 'admin' | 'master' | 'reseller' | null = null;
+    let requestingRole: 'admin' | 'master' | 'reseller' | 'cliente' | null = null;
 
     // Check if the request is from an internal service using the service role key
     if (token === supabaseServiceKey) {
@@ -83,12 +83,12 @@ serve(async (req) => {
     }
 
     // Now, use requestingUser and requestingRole for permission checks
-    if (!requestingRole || !['admin', 'master'].includes(requestingRole)) {
-      throw new Error('Only admin and master users can update accounts');
+    if (!requestingRole || !['admin', 'master', 'reseller'].includes(requestingRole)) {
+      throw new Error('Only admin, master and reseller users can update accounts');
     }
 
-    // For masters, verify they created this user. Skip this check if it's a service role call.
-    if (requestingRole === 'master' && !isServiceRoleCall) {
+    // For masters and resellers, verify they created this user. Skip this check if it's a service role call.
+    if ((requestingRole === 'master' || requestingRole === 'reseller') && !isServiceRoleCall) {
       const { data: targetProfile } = await supabaseAdmin
         .from('profiles')
         .select('created_by')

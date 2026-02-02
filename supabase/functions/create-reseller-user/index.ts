@@ -34,8 +34,8 @@ serve(async (req) => {
       throw new Error('Missing required fields');
     }
 
-    if (!['admin', 'master', 'reseller'].includes(resellerRole)) {
-      throw new Error('Invalid reseller role');
+    if (!['admin', 'master', 'reseller', 'cliente'].includes(resellerRole)) {
+      throw new Error('Invalid role');
     }
 
     // Check if the requesting user is a master
@@ -79,13 +79,26 @@ serve(async (req) => {
     const requestingRole = requestingRoleData?.role;
 
     // Validate permissions based on role hierarchy
-    if (!requestingRole || !['admin', 'master'].includes(requestingRole)) {
-      throw new Error('Only admin and master users can create accounts');
+    // Admin can create any role
+    // Master can create reseller or cliente
+    // Reseller can only create cliente
+    if (!requestingRole || !['admin', 'master', 'reseller'].includes(requestingRole)) {
+      throw new Error('Only admin, master and reseller users can create accounts');
     }
 
     // Masters cannot create admins
     if (requestingRole === 'master' && resellerRole === 'admin') {
       throw new Error('Masters cannot create admin accounts');
+    }
+
+    // Masters can only create master, reseller, or cliente
+    if (requestingRole === 'master' && !['master', 'reseller', 'cliente'].includes(resellerRole)) {
+      throw new Error('Masters can only create master, reseller or cliente accounts');
+    }
+
+    // Resellers can only create cliente
+    if (requestingRole === 'reseller' && resellerRole !== 'cliente') {
+      throw new Error('Resellers can only create cliente accounts');
     }
 
     // Create the user using admin API
@@ -175,8 +188,8 @@ serve(async (req) => {
 
     console.log('Role assigned successfully');
 
-    // Check and deduct credit for master users (skip for test resellers)
-    if (requestingRole === 'master' && !isTestReseller) {
+    // Check and deduct credit for master/reseller users (skip for test users and admins)
+    if ((requestingRole === 'master' || requestingRole === 'reseller') && !isTestReseller) {
       const { data: creditData, error: creditError } = await supabaseAdmin
         .from('user_credits')
         .select('balance')
@@ -219,7 +232,7 @@ serve(async (req) => {
 
       console.log('Credit deducted successfully');
     } else if (isTestReseller) {
-      console.log('Test reseller creation - skipping credit deduction');
+      console.log('Test user creation - skipping credit deduction');
     }
 
       // Enviar webhook para Acerto Certo (não bloqueia a resposta de sucesso)

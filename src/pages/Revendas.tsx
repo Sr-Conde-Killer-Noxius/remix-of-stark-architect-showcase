@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,14 +55,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Calendar } from "@/components/ui/calendar"; // Importar Calendar
-import { format } from "date-fns"; // Importar format
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 const resellerSchema = z.object({
   fullName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("E-mail inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  resellerRole: z.enum(["admin", "master", "reseller"], {
+  resellerRole: z.enum(["master", "reseller"], {
     required_error: "Selecione um nível",
   }),
 });
@@ -110,21 +109,16 @@ interface PotentialCreator {
   role: string;
 }
 
-interface ResellerRole {
-  role: string;
-}
-
 interface ResellerWithRole extends ResellerProfile {
   role: string;
 }
 
-export default function Users() {
+export default function Revendas() {
   const { userRole } = useAuth();
   const [resellers, setResellers] = useState<ResellerWithRole[]>([]);
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
@@ -133,13 +127,15 @@ export default function Users() {
   const [selectedPlanValue, setSelectedPlanValue] = useState<number>(0);
   const [potentialCreators, setPotentialCreators] = useState<PotentialCreator[]>([]);
   const [changingCreator, setChangingCreator] = useState(false);
-  const [selectedResellerForCreatorChange, setSelectedResellerForCreatorChange] = useState<ResellerWithRole | null>(null);
-  const { toast } = useToast();
-
-  // Estados para o novo diálogo de vencimento de crédito
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [renewingCredit, setRenewingCredit] = useState(false);
+  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [updatingRole, setUpdatingRole] = useState(false);
   const [creditExpiryDialogOpen, setCreditExpiryDialogOpen] = useState(false);
   const [selectedResellerForCreditExpiry, setSelectedResellerForCreditExpiry] = useState<ResellerWithRole | null>(null);
   const [newCreditExpiryDate, setNewCreditExpiryDate] = useState<Date | undefined>(undefined);
+  const { toast } = useToast();
 
   const form = useForm<ResellerFormData>({
     resolver: zodResolver(resellerSchema),
@@ -189,14 +185,12 @@ export default function Users() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Admin can see all profiles, Master only sees their created users
+      // Admin sees all, Master sees only their created users
       let profilesQuery = supabase
         .from("profiles")
         .select("*, planos(id, nome, valor)")
         .order("created_at", { ascending: false });
 
-      // Only filter by created_by for master users
-      // Admin users will see all profiles (no filter)
       if (userRole === 'master') {
         profilesQuery = profilesQuery.eq("created_by", user.id);
       }
@@ -214,32 +208,36 @@ export default function Users() {
           .eq("user_id", profile.user_id)
           .maybeSingle();
         
-        // Get creator name if created_by exists
-        let creatorName = null;
-        if (profile.created_by && profile.created_by !== profile.user_id) {
-          const { data: creatorData } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("user_id", profile.created_by)
-            .maybeSingle();
-          
-          if (creatorData) {
-            creatorName = creatorData.full_name;
-          }
-        }
+        const role = roleData?.role || "cliente";
         
-        resellersWithRoles.push({
-          ...profile,
-          role: roleData?.role || "reseller",
-          creator: creatorName ? [{ full_name: creatorName }] : null,
-        });
+        // Filter to only show master and reseller roles (not cliente or admin)
+        if (role === 'master' || role === 'reseller') {
+          let creatorName = null;
+          if (profile.created_by && profile.created_by !== profile.user_id) {
+            const { data: creatorData } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", profile.created_by)
+              .maybeSingle();
+            
+            if (creatorData) {
+              creatorName = creatorData.full_name;
+            }
+          }
+          
+          resellersWithRoles.push({
+            ...profile,
+            role,
+            creator: creatorName ? [{ full_name: creatorName }] : null,
+          });
+        }
       }
 
       setResellers(resellersWithRoles);
     } catch (error: any) {
       console.error("Error loading resellers:", error);
       toast({
-        title: "Erro ao carregar revendedores",
+        title: "Erro ao carregar revendas",
         description: error.message,
         variant: "destructive",
       });
@@ -249,10 +247,9 @@ export default function Users() {
   };
 
   const loadPotentialCreators = async () => {
-    if (userRole !== 'admin') return; // Only admin can change creators
+    if (userRole !== 'admin') return;
 
     try {
-      // Load all users with admin or master role
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name")
@@ -269,9 +266,8 @@ export default function Users() {
           .eq("user_id", profile.user_id)
           .maybeSingle();
         
-        const role = roleData?.role || "reseller";
+        const role = roleData?.role || "cliente";
         
-        // Only include admin or master users
         if (role === 'admin' || role === 'master') {
           creatorsWithRoles.push({
             user_id: profile.user_id,
@@ -287,24 +283,15 @@ export default function Users() {
     }
   };
 
-  useEffect(() => {
-    loadPlanos();
-    loadResellers();
-    if (userRole === 'admin') {
-      loadPotentialCreators();
-    }
-    loadUserCredits();
-  }, [userRole]);
-
   const loadUserCredits = async () => {
-    if (userRole === 'reseller') return;
+    if (userRole === 'reseller' || userRole === 'cliente') return;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       if (userRole === 'admin') {
-        setUserCredits(null); // null = ilimitado
+        setUserCredits(null);
         return;
       }
 
@@ -322,15 +309,23 @@ export default function Users() {
     }
   };
 
+  useEffect(() => {
+    loadPlanos();
+    loadResellers();
+    if (userRole === 'admin') {
+      loadPotentialCreators();
+    }
+    loadUserCredits();
+  }, [userRole]);
+
   const onSubmit = async (data: ResellerFormData) => {
     try {
       setSubmitting(true);
 
-      // Check credits before creating (client-side validation)
       if (userRole === 'master' && (userCredits === null || userCredits < 1)) {
         toast({
           title: "Créditos insuficientes",
-          description: "Você precisa de pelo menos 1 crédito para criar um usuário.",
+          description: "Você precisa de pelo menos 1 crédito para criar uma revenda.",
           variant: "destructive",
         });
         setSubmitting(false);
@@ -365,96 +360,30 @@ export default function Users() {
       }
 
       toast({
-        title: "Revendedor criado com sucesso!",
+        title: "Revenda criada com sucesso!",
         description: `${data.fullName} foi adicionado ao sistema.`,
       });
 
       setDialogOpen(false);
       form.reset();
       loadResellers();
-      loadUserCredits(); // Refresh credit balance
+      loadUserCredits();
     } catch (error: any) {
       console.error("Error creating reseller:", error);
       
-      let errorMessage = "Ocorreu um erro ao criar o revendedor";
+      let errorMessage = "Ocorreu um erro ao criar a revenda";
       
       if (error.message?.includes("already been registered") || 
           error.message?.includes("email_exists")) {
         errorMessage = "Este e-mail já está cadastrado no sistema";
       } else if (error.message?.includes("Only master users")) {
-        errorMessage = "Apenas usuários master podem criar revendedores";
+        errorMessage = "Apenas usuários master podem criar revendas";
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       toast({
-        title: "Erro ao criar revendedor",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onTestSubmit = async (data: ResellerFormData) => {
-    try {
-      setSubmitting(true);
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        throw new Error("Não autenticado");
-      }
-
-      const { data: result, error } = await supabase.functions.invoke(
-        "create-test-reseller-user",
-        {
-          body: {
-            email: data.email,
-            password: data.password,
-            fullName: data.fullName,
-            resellerRole: data.resellerRole,
-          },
-          headers: {
-            'Authorization': `Bearer ${sessionData.session.access_token}`
-          }
-        }
-      );
-
-      if (error) throw error;
-
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-
-      // Get current date for display
-      const currentDate = format(new Date(), "yyyy-MM-dd");
-
-      toast({
-        title: "Revendedor teste criado com sucesso!",
-        description: `${data.fullName} foi adicionado ao sistema com vencimento em ${currentDate}.`,
-      });
-
-      setTestDialogOpen(false);
-      form.reset();
-      loadResellers();
-    } catch (error: any) {
-      console.error("Error creating test reseller:", error);
-      
-      let errorMessage = "Ocorreu um erro ao criar o revendedor teste";
-      
-      if (error.message?.includes("already been registered") || 
-          error.message?.includes("email_exists")) {
-        errorMessage = "Este e-mail já está cadastrado no sistema";
-      } else if (error.message?.includes("Only master users")) {
-        errorMessage = "Apenas usuários master podem criar revendedores";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Erro ao criar revendedor teste",
+        title: "Erro ao criar revenda",
         description: errorMessage,
         variant: "destructive",
       });
@@ -500,7 +429,7 @@ export default function Users() {
       }
 
       toast({
-        title: "Revendedor atualizado com sucesso!",
+        title: "Revenda atualizada com sucesso!",
         description: `${data.fullName} foi atualizado.`,
       });
 
@@ -510,8 +439,8 @@ export default function Users() {
     } catch (error: any) {
       console.error("Error updating reseller:", error);
       toast({
-        title: "Erro ao atualizar revendedor",
-        description: error.message || "Ocorreu um erro ao atualizar o revendedor",
+        title: "Erro ao atualizar revenda",
+        description: error.message || "Ocorreu um erro ao atualizar a revenda",
         variant: "destructive",
       });
     } finally {
@@ -550,7 +479,7 @@ export default function Users() {
       }
 
       toast({
-        title: "Revendedor excluído com sucesso!",
+        title: "Revenda excluída com sucesso!",
         description: `${selectedReseller.full_name} foi removido do sistema.`,
       });
 
@@ -560,8 +489,8 @@ export default function Users() {
     } catch (error: any) {
       console.error("Error deleting reseller:", error);
       toast({
-        title: "Erro ao excluir revendedor",
-        description: error.message || "Ocorreu um erro ao excluir o revendedor",
+        title: "Erro ao excluir revenda",
+        description: error.message || "Ocorreu um erro ao excluir a revenda",
         variant: "destructive",
       });
     } finally {
@@ -618,12 +547,6 @@ export default function Users() {
       currency: "BRL",
     }).format(value);
   };
-
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [renewingCredit, setRenewingCredit] = useState(false);
-  const [renewDialogOpen, setRenewDialogOpen] = useState(false);
-  const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [updatingRole, setUpdatingRole] = useState(false);
 
   const updateCreator = async (userId: string, newCreatorId: string) => {
     try {
@@ -683,18 +606,11 @@ export default function Users() {
         throw new Error(result.error);
       }
 
-      const roleLabels: Record<string, string> = {
-        admin: "Admin",
-        master: "Master",
-        reseller: "Revendedor"
-      };
-
       toast({
         title: "Status atualizado com sucesso!",
         description: `O status foi alterado para ${status === 'active' ? 'Ativo' : status === 'inactive' ? 'Inativo' : 'Suspenso'}.`,
       });
 
-      // Atualizar o estado local para refletir a mudança de status
       setResellers(prevResellers =>
         prevResellers.map(reseller =>
           reseller.user_id === userId
@@ -751,18 +667,17 @@ export default function Users() {
       }
 
       toast({
-        title: "Usuário renovado com sucesso!",
+        title: "Revenda renovada com sucesso!",
         description: `Adicionado 1 mês de atividade para ${selectedReseller.full_name}.`,
       });
 
-      // Atualizar o estado local para refletir a nova data de vencimento do crédito e status
       setResellers(prevResellers =>
         prevResellers.map(reseller =>
           reseller.user_id === selectedReseller.user_id
             ? {
                 ...reseller,
                 credit_expiry_date: result.newExpiryDate,
-                status: 'active', // A renovação sempre define o status como ativo
+                status: 'active',
               }
             : reseller
         )
@@ -770,12 +685,12 @@ export default function Users() {
 
       setRenewDialogOpen(false);
       setSelectedReseller(null);
-      loadUserCredits(); // Recarregar saldo de créditos do usuário logado
+      loadUserCredits();
     } catch (error: any) {
       console.error("Error renewing credit:", error);
       toast({
-        title: "Erro ao renovar usuário",
-        description: error.message || "Ocorreu um erro ao renovar o usuário",
+        title: "Erro ao renovar revenda",
+        description: error.message || "Ocorreu um erro ao renovar a revenda",
         variant: "destructive",
       });
     } finally {
@@ -785,7 +700,7 @@ export default function Users() {
 
   const canRenewCredit = userRole === 'admin' || (userRole === 'master' && (userCredits || 0) >= 1);
 
-  const updateResellerRole = async (userId: string, newRole: 'admin' | 'master' | 'reseller') => {
+  const updateResellerRole = async (userId: string, newRole: 'master' | 'reseller') => {
     try {
       setUpdatingRole(true);
 
@@ -815,9 +730,8 @@ export default function Users() {
       }
 
       const roleLabels: Record<string, string> = {
-        admin: "Admin",
         master: "Master",
-        reseller: "Revendedor"
+        reseller: "Revenda"
       };
 
       toast({
@@ -825,7 +739,6 @@ export default function Users() {
         description: `O nível foi alterado para ${roleLabels[newRole]}.`,
       });
 
-      // Atualizar o estado local para refletir a mudança de nível
       setResellers(prevResellers =>
         prevResellers.map(reseller =>
           reseller.user_id === userId
@@ -846,7 +759,6 @@ export default function Users() {
     }
   };
 
-  // Funções para o novo diálogo de vencimento de crédito
   const handleOpenCreditExpiryDialog = (reseller: ResellerWithRole) => {
     setSelectedResellerForCreditExpiry(reseller);
     setNewCreditExpiryDate(reseller.credit_expiry_date ? new Date(reseller.credit_expiry_date) : undefined);
@@ -871,11 +783,10 @@ export default function Users() {
         throw new Error("Não autenticado");
       }
 
-      // Determine new status based on newCreditExpiryDate
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalize today to start of day
+      today.setHours(0, 0, 0, 0);
       const expiryDateOnly = new Date(newCreditExpiryDate);
-      expiryDateOnly.setHours(0, 0, 0, 0); // Normalize expiry date to start of day
+      expiryDateOnly.setHours(0, 0, 0, 0);
 
       const newStatus = expiryDateOnly >= today ? 'active' : 'inactive';
 
@@ -885,7 +796,7 @@ export default function Users() {
           body: {
             userId: selectedResellerForCreditExpiry.user_id,
             creditExpiryDate: newCreditExpiryDate.toISOString(),
-            status: newStatus, // Pass the calculated status
+            status: newStatus,
           },
           headers: {
             'Authorization': `Bearer ${sessionData.session.access_token}`
@@ -903,7 +814,6 @@ export default function Users() {
         description: `O vencimento do crédito para ${selectedResellerForCreditExpiry.full_name} foi atualizado para ${format(newCreditExpiryDate, "dd/MM/yyyy")} e o status para ${newStatus === 'active' ? 'Ativo' : 'Inativo'}.`,
       });
 
-      // Atualizar o estado local para refletir a mudança imediatamente
       setResellers(prevResellers =>
         prevResellers.map(reseller =>
           reseller.user_id === selectedResellerForCreditExpiry.user_id
@@ -919,8 +829,6 @@ export default function Users() {
       setCreditExpiryDialogOpen(false);
       setSelectedResellerForCreditExpiry(null);
       setNewCreditExpiryDate(undefined);
-      // Não é mais necessário chamar loadResellers() aqui para a atualização imediata da UI.
-      // loadResellers(); // Removido para evitar recarregar a página inteira
     } catch (error: any) {
       console.error("Error updating credit expiry date:", error);
       toast({
@@ -935,31 +843,27 @@ export default function Users() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader title="Gerenciar Revendedores e Usuários" />
+      <AppHeader title="Gerenciar Revendas" />
 
-      <main className="container mx-auto p-4 sm:p-6"> {/* Ajustado padding */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0"> {/* Ajustado para empilhar em telas pequenas */}
+      <main className="container mx-auto p-4 sm:p-6">
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Usuários e Revendedores</h2> {/* Ajustado tamanho da fonte */}
-            <p className="text-sm sm:text-base text-muted-foreground"> {/* Ajustado tamanho da fonte */}
-              Gerencie os Revendedores e Usuário do sistema
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Controle de Revendas</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Gerencie os Masters e Revendas do sistema
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <Button onClick={() => setTestDialogOpen(true)} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Usuário Teste
-            </Button>
             <Button onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Novo Usuário
+              Nova Revenda
             </Button>
           </div>
         </div>
 
         <div className="rounded-lg border bg-card">
-          <div className="overflow-x-auto"> {/* Adicionado para responsividade da tabela */}
-            <Table className="min-w-max"> {/* Adicionado min-w-max aqui */}
+          <div className="overflow-x-auto">
+            <Table className="min-w-max">
               <TableHeader>
                 <TableRow>
                   <TableHead className="whitespace-nowrap">Nome</TableHead>
@@ -987,7 +891,7 @@ export default function Users() {
                 ) : resellers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={userRole === 'admin' ? 11 : 10} className="text-center py-8 text-muted-foreground">
-                      Nenhum revendedor encontrado
+                      Nenhuma revenda encontrada
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1000,19 +904,9 @@ export default function Users() {
                       <TableCell className="whitespace-nowrap">{reseller.phone || "N/A"}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge
-                          variant={
-                            reseller.role === "admin"
-                              ? "default"
-                              : reseller.role === "master"
-                              ? "secondary"
-                              : "outline"
-                          }
+                          variant={reseller.role === "master" ? "secondary" : "outline"}
                         >
-                          {reseller.role === "admin"
-                            ? "Admin"
-                            : reseller.role === "master"
-                            ? "Master"
-                            : "Revendedor"}
+                          {reseller.role === "master" ? "Master" : "Revenda"}
                         </Badge>
                       </TableCell>
                       {userRole === 'admin' && (
@@ -1113,16 +1007,6 @@ export default function Users() {
                                 Alterar Nível
                               </DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="bg-popover">
-                                {userRole === 'admin' && (
-                                  <DropdownMenuItem 
-                                    onClick={() => updateResellerRole(reseller.user_id, 'admin')}
-                                    disabled={updatingRole}
-                                  >
-                                    {reseller.role === 'admin' && <Check className="mr-2 h-4 w-4" />}
-                                    {reseller.role !== 'admin' && <span className="mr-6" />}
-                                    Admin
-                                  </DropdownMenuItem>
-                                )}
                                 <DropdownMenuItem 
                                   onClick={() => updateResellerRole(reseller.user_id, 'master')}
                                   disabled={updatingRole}
@@ -1137,7 +1021,7 @@ export default function Users() {
                                 >
                                   {reseller.role === 'reseller' && <Check className="mr-2 h-4 w-4" />}
                                   {reseller.role !== 'reseller' && <span className="mr-6" />}
-                                  Revendedor
+                                  Revenda
                                 </DropdownMenuItem>
                               </DropdownMenuSubContent>
                             </DropdownMenuSub>
@@ -1153,7 +1037,7 @@ export default function Users() {
                               disabled={!canRenewCredit}
                             >
                               <RefreshCw className="mr-2 h-4 w-4" />
-                              Renovar Usuário
+                              Renovar Revenda
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setSelectedReseller(reseller);
@@ -1170,125 +1054,17 @@ export default function Users() {
                 )}
               </TableBody>
             </Table>
-          </div> {/* Fim do contêiner overflow-x-auto */}
+          </div>
         </div>
       </main>
 
-      {/* Create Dialog - Usuário Teste */}
-      <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo Usuário Teste</DialogTitle>
-            <DialogDescription>
-              Crie um novo usuário de teste com vencimento de crédito na data atual
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={form.handleSubmit(onTestSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="test-fullName">Nome Completo</Label>
-              <Input
-                id="test-fullName"
-                {...form.register("fullName")}
-                placeholder="João Silva"
-                className="w-full"
-              />
-              {form.formState.errors.fullName && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.fullName.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="test-email">E-mail</Label>
-              <Input
-                id="test-email"
-                type="email"
-                {...form.register("email")}
-                placeholder="joao@exemplo.com"
-                className="w-full"
-              />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="test-password">Senha</Label>
-              <Input
-                id="test-password"
-                type="password"
-                {...form.register("password")}
-                placeholder="••••••••"
-                className="w-full"
-              />
-              {form.formState.errors.password && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.password.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="test-resellerRole">Nível</Label>
-              <Select
-                onValueChange={(value) =>
-                  form.setValue("resellerRole", value as "admin" | "master" | "reseller")
-                }
-                defaultValue="reseller"
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione o nível" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userRole === 'admin' && (
-                    <SelectItem value="admin">Admin</SelectItem>
-                  )}
-                  <SelectItem value="master">Usuário Master</SelectItem>
-                  <SelectItem value="reseller">Usuário</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.resellerRole && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.resellerRole.message}
-                </p>
-              )}
-            </div>
-
-            <div className="p-3 bg-muted rounded-md">
-              <p className="text-sm text-muted-foreground">
-                <strong>Vencimento do Crédito:</strong> {format(new Date(), "dd/MM/yyyy")} (Data atual)
-              </p>
-            </div>
-
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTestDialogOpen(false)}
-                disabled={submitting}
-                className="w-full sm:w-auto"
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                {submitting ? "Criando..." : "Criar Usuário Teste"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogTitle>Nova Revenda</DialogTitle>
             <DialogDescription>
-              Crie um novo usuário no sistema
+              Crie uma nova revenda ou master no sistema
             </DialogDescription>
           </DialogHeader>
 
@@ -1344,7 +1120,7 @@ export default function Users() {
               <Label htmlFor="resellerRole">Nível</Label>
               <Select
                 onValueChange={(value) =>
-                  form.setValue("resellerRole", value as "admin" | "master" | "reseller")
+                  form.setValue("resellerRole", value as "master" | "reseller")
                 }
                 defaultValue="reseller"
               >
@@ -1352,11 +1128,8 @@ export default function Users() {
                   <SelectValue placeholder="Selecione o nível" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRole === 'admin' && (
-                    <SelectItem value="admin">Admin</SelectItem>
-                  )}
-                  <SelectItem value="master">Usuário Master</SelectItem>
-                  <SelectItem value="reseller">Usuário</SelectItem>
+                  <SelectItem value="master">Master</SelectItem>
+                  <SelectItem value="reseller">Revenda</SelectItem>
                 </SelectContent>
               </Select>
               {form.formState.errors.resellerRole && (
@@ -1366,7 +1139,7 @@ export default function Users() {
               )}
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1377,7 +1150,7 @@ export default function Users() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                {submitting ? "Criando..." : "Criar Usuário"}
+                {submitting ? "Criando..." : "Criar Revenda"}
               </Button>
             </DialogFooter>
           </form>
@@ -1386,11 +1159,11 @@ export default function Users() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+        <DialogContent className="max-w-[90vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar Revendedor</DialogTitle>
+            <DialogTitle>Editar Revenda</DialogTitle>
             <DialogDescription>
-              Atualize as informações do revendedor
+              Atualize as informações da revenda
             </DialogDescription>
           </DialogHeader>
 
@@ -1400,7 +1173,6 @@ export default function Users() {
               <Input
                 id="edit-fullName"
                 {...editForm.register("fullName")}
-                placeholder="João Silva"
                 className="w-full"
               />
               {editForm.formState.errors.fullName && (
@@ -1416,7 +1188,6 @@ export default function Users() {
                 id="edit-email"
                 type="email"
                 {...editForm.register("email")}
-                placeholder="joao@exemplo.com"
                 className="w-full"
               />
               {editForm.formState.errors.email && (
@@ -1427,12 +1198,10 @@ export default function Users() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-phone">Telefone *</Label>
+              <Label htmlFor="edit-phone">Telefone</Label>
               <Input
                 id="edit-phone"
-                type="tel"
                 {...editForm.register("phone")}
-                placeholder="(XX) XXXXX-XXXX"
                 className="w-full"
               />
               {editForm.formState.errors.phone && (
@@ -1448,25 +1217,20 @@ export default function Users() {
                 id="edit-password"
                 type="password"
                 {...editForm.register("password")}
-                placeholder="••••••••"
+                placeholder="Deixe em branco para manter"
                 className="w-full"
               />
-              {editForm.formState.errors.password && (
-                <p className="text-sm text-destructive">
-                  {editForm.formState.errors.password.message}
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-plan">Plano</Label>
+              <Label htmlFor="edit-planId">Plano</Label>
               <Select
+                value={editForm.watch("planId") || ""}
                 onValueChange={(value) => {
                   editForm.setValue("planId", value);
-                  const plano = planos.find(p => p.id === value);
-                  setSelectedPlanValue(plano?.valor || 0);
+                  const selectedPlano = planos.find((p) => p.id === value);
+                  setSelectedPlanValue(selectedPlano?.valor || 0);
                 }}
-                value={editForm.watch("planId")}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione um plano" />
@@ -1474,22 +1238,20 @@ export default function Users() {
                 <SelectContent>
                   {planos.map((plano) => (
                     <SelectItem key={plano.id} value={plano.id}>
-                      {plano.nome}
+                      {plano.nome} - {formatCurrency(plano.valor)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-planValue">Valor do Plano</Label>
-              <Input
-                id="edit-planValue"
-                value={formatCurrency(selectedPlanValue)}
-                disabled
-                className="w-full"
-              />
-            </div>
+            {selectedPlanValue > 0 && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm text-muted-foreground">
+                  Valor do plano: <strong>{formatCurrency(selectedPlanValue)}</strong>
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="edit-expiryDate">Data de Vencimento</Label>
@@ -1501,7 +1263,7 @@ export default function Users() {
               />
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1521,20 +1283,21 @@ export default function Users() {
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o revendedor {selectedReseller?.full_name}? 
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir a revenda{" "}
+              <strong>{selectedReseller?.full_name}</strong>? Esta ação não
+              pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
-            <AlertDialogCancel disabled={submitting} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={onDelete}
               disabled={submitting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {submitting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
@@ -1544,32 +1307,25 @@ export default function Users() {
 
       {/* Renew Credit Dialog */}
       <AlertDialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
-        <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Adicionado max-h e overflow-y-auto */}
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Renovar Usuário</AlertDialogTitle>
+            <AlertDialogTitle>Renovar Revenda</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja renovar o usuário {selectedReseller?.full_name}?
-              <br /><br />
-              Isso irá:
-              <ul className="list-disc list-inside mt-2">
-                <li>Adicionar 30 dias ao vencimento do crédito</li>
-                <li>Custar 1 crédito do seu saldo</li>
-                {userRole === 'master' && (
-                  <li>Seu saldo atual: {userCredits} crédito(s)</li>
-                )}
-              </ul>
-              <br />
-              Data atual de vencimento do crédito: {selectedReseller?.credit_expiry_date 
-                ? new Date(selectedReseller.credit_expiry_date).toLocaleDateString("pt-BR")
-                : "Não definido"}
+              Tem certeza que deseja renovar a revenda{" "}
+              <strong>{selectedReseller?.full_name}</strong>? Isso adicionará 1 mês
+              ao vencimento do crédito.
+              {userRole === 'master' && (
+                <span className="block mt-2 text-primary">
+                  Custo: 1 crédito (Saldo atual: {userCredits})
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2"> {/* Empilhado em telas pequenas */}
-            <AlertDialogCancel disabled={renewingCredit} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={renewingCredit}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={onRenewCredit}
-              disabled={renewingCredit}
-              className="w-full sm:w-auto"
+              disabled={renewingCredit || !canRenewCredit}
             >
               {renewingCredit ? "Renovando..." : "Renovar"}
             </AlertDialogAction>
@@ -1577,9 +1333,9 @@ export default function Users() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Alterar Vencimento do Crédito Dialog (Admin only) */}
+      {/* Credit Expiry Dialog */}
       <Dialog open={creditExpiryDialogOpen} onOpenChange={setCreditExpiryDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[90vw] sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Alterar Vencimento do Crédito</DialogTitle>
             <DialogDescription>
@@ -1587,40 +1343,25 @@ export default function Users() {
               <strong>{selectedResellerForCreditExpiry?.full_name}</strong>.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex flex-col items-center space-y-4">
-              <Label htmlFor="newCreditExpiryDate" className="text-center">
-                Nova Data de Vencimento
-              </Label>
-              <Calendar
-                mode="single"
-                selected={newCreditExpiryDate}
-                onSelect={setNewCreditExpiryDate}
-                initialFocus
-              />
-              {newCreditExpiryDate && (
-                <p className="text-sm text-muted-foreground">
-                  Data selecionada: {format(newCreditExpiryDate, "dd/MM/yyyy")}
-                </p>
-              )}
-            </div>
+          <div className="flex justify-center py-4">
+            <Calendar
+              mode="single"
+              selected={newCreditExpiryDate}
+              onSelect={setNewCreditExpiryDate}
+              initialFocus
+            />
           </div>
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => setCreditExpiryDialogOpen(false)}
               disabled={submitting}
-              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
-            <Button
-              onClick={onUpdateCreditExpiry}
-              disabled={submitting || !newCreditExpiryDate}
-              className="w-full sm:w-auto"
-            >
-              {submitting ? "Salvando..." : "Salvar Data"}
+            <Button onClick={onUpdateCreditExpiry} disabled={submitting || !newCreditExpiryDate}>
+              {submitting ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1632,8 +1373,8 @@ export default function Users() {
           open={notificationDialogOpen}
           onOpenChange={setNotificationDialogOpen}
           recipient={{
-            id: selectedReseller.id,
-            name: selectedReseller.full_name || "",
+            id: selectedReseller.user_id,
+            name: selectedReseller.full_name,
             phone: selectedReseller.phone,
             plan_name: selectedReseller.planos?.nome,
             plan_value: selectedReseller.planos?.valor,
