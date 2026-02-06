@@ -70,7 +70,7 @@ serve(async (req) => {
     // Fetch all profiles
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, full_name');
+      .select('user_id, full_name, created_at');
     if (profilesError) throw profilesError;
 
     // Fetch all user roles
@@ -80,16 +80,16 @@ serve(async (req) => {
     if (userRolesError) throw userRolesError;
     const roleMap = new Map(userRoles?.map(ur => [ur.user_id, ur.role]));
 
-    // Filter for master users
-    const masterUserIds = profiles
-      .filter(p => roleMap.get(p.user_id) === 'master')
+    // Filter for master AND reseller users
+    const masterResellerUserIds = profiles
+      .filter(p => roleMap.get(p.user_id) === 'master' || roleMap.get(p.user_id) === 'reseller')
       .map(p => p.user_id);
 
-    // Fetch all user credits for master users
+    // Fetch all user credits for master/reseller users
     const { data: userCredits, error: userCreditsError } = await supabaseAdmin
       .from('user_credits')
       .select('user_id, balance')
-      .in('user_id', masterUserIds);
+      .in('user_id', masterResellerUserIds);
     if (userCreditsError) throw userCreditsError;
     const creditMap = new Map(userCredits?.map(uc => [uc.user_id, uc.balance]));
 
@@ -98,17 +98,19 @@ serve(async (req) => {
     if (authUsersError) throw authUsersError;
     const authUserMap = new Map(authUsersData.users.map(u => [u.id, u.last_sign_in_at]));
 
-    const masterUserDetails = profiles
-      .filter(p => masterUserIds.includes(p.user_id))
+    const userDetails = profiles
+      .filter(p => masterResellerUserIds.includes(p.user_id))
       .map(p => ({
         user_id: p.user_id,
         full_name: p.full_name || 'N/A',
         credit_balance: creditMap.get(p.user_id) || 0,
         last_login_at: authUserMap.get(p.user_id) || null,
+        role: roleMap.get(p.user_id) || 'unknown',
+        created_at: p.created_at || null,
       }));
 
     return new Response(
-      JSON.stringify({ success: true, masters: masterUserDetails }),
+      JSON.stringify({ success: true, masters: userDetails }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

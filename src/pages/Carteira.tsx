@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useMemo } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, Loader2 } from "lucide-react";
+import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, Loader2, Search, ArrowUpDown, Filter } from "lucide-react";
 import { format } from "date-fns";
 
 interface CreditData {
@@ -50,7 +50,12 @@ interface MasterUserDetail {
   full_name: string;
   credit_balance: number;
   last_login_at: string | null;
+  role: string;
+  created_at: string | null;
 }
+
+type SortField = 'full_name' | 'credit_balance' | 'created_at';
+type SortDirection = 'asc' | 'desc';
 
 export default function Carteira() {
   const { userRole, user } = useAuth();
@@ -70,6 +75,12 @@ export default function Carteira() {
 
   const [masterUsersWithDetails, setMasterUsersWithDetails] = useState<MasterUserDetail[]>([]);
   const [loadingMasterUsers, setLoadingMasterUsers] = useState(true);
+  
+  // Filters and sorting state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>("full_name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const loadCreditBalance = async () => {
     if (!user) return;
@@ -472,8 +483,52 @@ export default function Carteira() {
 
   // New filter for master-to-master transfers
   const masterToMasterTransactions = transactions.filter(t => 
-    t.transaction_type === 'credit_spent' && t.description.startsWith('Transferência para Master')
+    t.transaction_type === 'credit_spent' && (t.description.startsWith('Transferência para Master') || t.description.startsWith('Transferência para Revenda'))
   );
+
+  // Toggle sort direction or change field
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filtered and sorted users
+  const filteredAndSortedUsers = useMemo(() => {
+    let filtered = masterUsersWithDetails;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(u => 
+        u.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(u => u.role === roleFilter);
+    }
+
+    // Apply sorting
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortField === 'full_name') {
+        comparison = a.full_name.localeCompare(b.full_name);
+      } else if (sortField === 'credit_balance') {
+        comparison = a.credit_balance - b.credit_balance;
+      } else if (sortField === 'created_at') {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        comparison = dateA - dateB;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [masterUsersWithDetails, searchQuery, roleFilter, sortField, sortDirection]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -526,57 +581,127 @@ export default function Carteira() {
           </CardContent>
         </Card>
 
-        {/* Nova seção para Usuários Masters (apenas para Admin) */}
+        {/* Nova seção para Usuários Masters e Revendas (apenas para Admin) */}
         {userRole === 'admin' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <UserCog className="h-5 w-5 text-blue-500" />
-                Usuários Masters
+                <UserCog className="h-5 w-5 text-primary" />
+                Usuários Masters e Revendas
               </CardTitle>
               <CardDescription>
-                Visão geral de todos os usuários com nível Master no sistema.
+                Visão geral de todos os usuários com nível Master e Revenda no sistema.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Filters and Search */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Filtrar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="master">Master</SelectItem>
+                      <SelectItem value="reseller">Revenda</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="rounded-lg border overflow-x-auto">
                 <Table className="min-w-max">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="whitespace-nowrap">Nome do Master</TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Créditos Atuais</TableHead>
+                      <TableHead className="whitespace-nowrap">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-2 -ml-2 font-medium hover:bg-accent"
+                          onClick={() => handleSort('full_name')}
+                        >
+                          Nome
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">Tipo</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-2 font-medium hover:bg-accent"
+                          onClick={() => handleSort('credit_balance')}
+                        >
+                          Créditos
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-2 -ml-2 font-medium hover:bg-accent"
+                          onClick={() => handleSort('created_at')}
+                        >
+                          Data Criação
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
                       <TableHead className="whitespace-nowrap">Último Login</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loadingMasterUsers ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-8">
+                        <TableCell colSpan={5} className="text-center py-8">
                           <div className="flex justify-center">
                             <Loader2 className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                           </div>
                         </TableCell>
                       </TableRow>
-                    ) : masterUsersWithDetails.length === 0 ? (
+                    ) : filteredAndSortedUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                          Nenhum usuário Master encontrado
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {searchQuery || roleFilter !== 'all' 
+                            ? 'Nenhum usuário encontrado com os filtros aplicados' 
+                            : 'Nenhum usuário Master ou Revenda encontrado'}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      masterUsersWithDetails.map((master) => (
-                        <TableRow key={master.user_id}>
+                      filteredAndSortedUsers.map((user) => (
+                        <TableRow key={user.user_id}>
                           <TableCell className="font-medium whitespace-nowrap">
-                            {master.full_name}
+                            {user.full_name}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <Badge variant={user.role === 'master' ? 'default' : 'secondary'}>
+                              {user.role === 'master' ? 'Master' : 'Revenda'}
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-right whitespace-nowrap">
-                            <Badge variant="default" className="bg-primary">
-                              {master.credit_balance}
+                            <Badge variant="outline" className="font-mono">
+                              {user.credit_balance}
                             </Badge>
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
-                            {master.last_login_at
-                              ? format(new Date(master.last_login_at), 'dd/MM/yyyy HH:mm')
+                            {user.created_at
+                              ? format(new Date(user.created_at), 'dd/MM/yyyy')
+                              : 'N/A'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {user.last_login_at
+                              ? format(new Date(user.last_login_at), 'dd/MM/yyyy HH:mm')
                               : 'Nunca logou'}
                           </TableCell>
                         </TableRow>
@@ -585,6 +710,13 @@ export default function Carteira() {
                   </TableBody>
                 </Table>
               </div>
+              
+              {/* Results count */}
+              {!loadingMasterUsers && (
+                <p className="text-sm text-muted-foreground">
+                  Exibindo {filteredAndSortedUsers.length} de {masterUsersWithDetails.length} usuários
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
