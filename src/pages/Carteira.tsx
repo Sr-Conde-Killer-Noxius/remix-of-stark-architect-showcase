@@ -426,18 +426,35 @@ export default function Carteira() {
         throw new Error("Não autenticado");
       }
 
-      const { data: result, error } = await supabase.functions.invoke(
-        "manage-credits",
-        {
-          body: {
-            targetUserId: selectedRemoveMasterId,
-            amount: -parseInt(removeCreditAmount), // Negativo para remover
-          },
-          headers: {
-            'Authorization': `Bearer ${sessionData.session.access_token}`
+      let result, error;
+
+      if (userRole === 'admin') {
+        ({ data: result, error } = await supabase.functions.invoke(
+          "manage-credits",
+          {
+            body: {
+              targetUserId: selectedRemoveMasterId,
+              amount: -parseInt(removeCreditAmount),
+            },
+            headers: {
+              'Authorization': `Bearer ${sessionData.session.access_token}`
+            }
           }
-        }
-      );
+        ));
+      } else {
+        ({ data: result, error } = await supabase.functions.invoke(
+          "transfer-credits-master-to-master",
+          {
+            body: {
+              targetUserId: selectedRemoveMasterId,
+              amount: -parseInt(removeCreditAmount),
+            },
+            headers: {
+              'Authorization': `Bearer ${sessionData.session.access_token}`
+            }
+          }
+        ));
+      }
 
       if (error) throw error;
 
@@ -566,16 +583,14 @@ export default function Carteira() {
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Créditos
                 </Button>
-                {userRole === 'admin' && (
-                  <Button 
-                    onClick={() => setRemoveCreditsDialogOpen(true)}
-                    variant="destructive"
-                    className="w-full sm:w-auto"
-                  >
-                    <Coins className="mr-2 h-4 w-4" />
-                    Remover Créditos
-                  </Button>
-                )}
+                <Button 
+                  onClick={() => setRemoveCreditsDialogOpen(true)}
+                  variant="destructive"
+                  className="w-full sm:w-auto"
+                >
+                  <Coins className="mr-2 h-4 w-4" />
+                  Remover Créditos
+                </Button>
               </div>
             )}
           </CardContent>
@@ -1084,71 +1099,69 @@ export default function Carteira() {
         </DialogContent>
       </Dialog>
 
-      {/* Remove Credits Dialog (Admin only) */}
-      {userRole === 'admin' && removeCreditsDialogOpen ? ( // Render Dialog only if user is admin AND dialog is open
-        <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
-          <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Remover Créditos</DialogTitle>
-              <DialogDescription>
-                Remova créditos de um usuário master específico
-              </DialogDescription>
-            </DialogHeader>
+      {/* Remove Credits Dialog */}
+      <Dialog open={removeCreditsDialogOpen} onOpenChange={setRemoveCreditsDialogOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Remover Créditos</DialogTitle>
+            <DialogDescription>
+              Remova créditos de um usuário Master ou Revenda
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="remove-master">Usuário Master</Label>
-                <Select value={selectedRemoveMasterId} onValueChange={setSelectedRemoveMasterId} disabled={submitting}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione um master" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {masterUsers.map((master) => (
-                      <SelectItem key={master.user_id} value={master.user_id}>
-                        {master.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
-                <Input
-                  id="remove-amount"
-                  type="number"
-                  min="1"
-                  value={removeCreditAmount}
-                  onChange={(e) => setRemoveCreditAmount(e.target.value)}
-                  placeholder="Ex: 5"
-                  className="w-full"
-                  disabled={submitting}
-                />
-              </div> {/* Adicionada a tag </div> que faltava aqui */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="remove-master">Usuário</Label>
+              <Select value={selectedRemoveMasterId} onValueChange={setSelectedRemoveMasterId} disabled={submitting}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um usuário" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(userRole === 'admin' ? masterUsers : masterCreatedUsers).map((u) => (
+                    <SelectItem key={u.user_id} value={u.user_id}>
+                      {u.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRemoveCreditsDialogOpen(false)}
+            <div className="space-y-2">
+              <Label htmlFor="remove-amount">Quantidade de Créditos</Label>
+              <Input
+                id="remove-amount"
+                type="number"
+                min="1"
+                value={removeCreditAmount}
+                onChange={(e) => setRemoveCreditAmount(e.target.value)}
+                placeholder="Ex: 5"
+                className="w-full"
                 disabled={submitting}
-                className="w-full sm:w-auto"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleRemoveCredits} 
-                disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
-                variant="destructive"
-                className="w-full sm:w-auto"
-              >
-                {submitting ? "Removendo..." : "Remover Créditos"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveCreditsDialogOpen(false)}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleRemoveCredits} 
+              disabled={submitting || !selectedRemoveMasterId || !removeCreditAmount}
+              variant="destructive"
+              className="w-full sm:w-auto"
+            >
+              {submitting ? "Removendo..." : "Remover Créditos"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
