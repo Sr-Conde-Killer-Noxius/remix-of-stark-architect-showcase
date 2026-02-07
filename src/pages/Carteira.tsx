@@ -264,36 +264,66 @@ export default function Carteira() {
   };
 
   const loadMasterUsersWithDetails = async () => {
-    if (userRole !== 'admin' || !user) {
+    if (!user || (userRole !== 'admin' && userRole !== 'master' && userRole !== 'reseller')) {
       setLoadingMasterUsers(false);
       return;
     }
     try {
       setLoadingMasterUsers(true);
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        throw new Error("Não autenticado");
-      }
+      
+      if (userRole === 'admin') {
+        // Admin: use edge function to get all masters/resellers
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) throw new Error("Não autenticado");
 
-      const { data: result, error } = await supabase.functions.invoke(
-        "get-master-user-details",
-        {
-          headers: {
-            'Authorization': `Bearer ${sessionData.session.access_token}`
+        const { data: result, error } = await supabase.functions.invoke(
+          "get-master-user-details",
+          { headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` } }
+        );
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        setMasterUsersWithDetails(result.masters || []);
+      } else {
+        // Master/Reseller: load subordinates (created_by = user.id) with master/reseller role
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, created_at')
+          .eq('created_by', user.id)
+          .order('full_name', { ascending: true });
+
+        if (profilesError) throw profilesError;
+
+        const details: MasterUserDetail[] = [];
+        for (const profile of profiles || []) {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', profile.user_id)
+            .maybeSingle();
+
+          if (roleData?.role === 'master' || roleData?.role === 'reseller') {
+            const { data: creditData } = await supabase
+              .from('user_credits')
+              .select('balance')
+              .eq('user_id', profile.user_id)
+              .maybeSingle();
+
+            details.push({
+              user_id: profile.user_id,
+              full_name: profile.full_name || 'N/A',
+              credit_balance: creditData?.balance || 0,
+              last_login_at: null,
+              role: roleData.role,
+              created_at: profile.created_at,
+            });
           }
         }
-      );
-
-      if (error) throw error;
-      if (result?.error) {
-        throw new Error(result.error);
+        setMasterUsersWithDetails(details);
       }
-
-      setMasterUsersWithDetails(result.masters || []);
     } catch (error: any) {
-      console.error('Error loading master users with details:', error);
+      console.error('Error loading users with details:', error);
       toast({
-        title: "Erro ao carregar usuários Master",
+        title: "Erro ao carregar usuários",
         description: error.message,
         variant: "destructive",
       });
@@ -307,10 +337,12 @@ export default function Carteira() {
     loadCreditBalance();
     loadTransactions();
     if (userRole === 'admin') {
-      loadMasterUsers(); // Keep this for the add/remove dialogs
-      loadMasterUsersWithDetails(); // New call for the new section
+      loadMasterUsers();
     } else if (userRole === 'master' || userRole === 'reseller') {
       loadMasterCreatedUsers();
+    }
+    if (userRole === 'admin' || userRole === 'master' || userRole === 'reseller') {
+      loadMasterUsersWithDetails();
     }
   }, [userRole, user]);
 
@@ -596,8 +628,8 @@ export default function Carteira() {
           </CardContent>
         </Card>
 
-        {/* Nova seção para Usuários Masters e Revendas (apenas para Admin) */}
-        {userRole === 'admin' && (
+        {/* Seção Usuários Masters e Revendas */}
+        {(userRole === 'admin' || userRole === 'master' || userRole === 'reseller') && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -605,7 +637,9 @@ export default function Carteira() {
                 Usuários Masters e Revendas
               </CardTitle>
               <CardDescription>
-                Visão geral de todos os usuários com nível Master e Revenda no sistema.
+                {userRole === 'admin'
+                  ? 'Visão geral de todos os usuários com nível Master e Revenda no sistema.'
+                  : 'Visão geral de todos os usuários com nível Master e Revenda abaixo de você.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
