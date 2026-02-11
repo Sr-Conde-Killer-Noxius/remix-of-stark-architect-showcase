@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import SobreCreditos from "./pages/SobreCreditos";
 import Planos from "./pages/Planos";
 import Profile from "./pages/Profile";
 import Clientes from "./pages/Clientes";
@@ -52,6 +53,7 @@ const App = () => (
                           <Route path="/settings/acerto-certo-integration" element={<AcertoCertoIntegration />} />
                           <Route path="/profile" element={<Profile />} />
                           <Route path="/controlepages" element={<ControlPages />} />
+                          <Route path="/sobre-creditos" element={<SobreCreditos />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </div>

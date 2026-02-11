@@ -1,4 +1,4 @@
-import { Home, Package, Settings, LogOut, UsersRound, MessageSquare, Webhook, MessageCircle, Link2, Wallet, Shield, User } from "lucide-react";
+import { Home, Package, Settings, LogOut, UsersRound, MessageSquare, Webhook, MessageCircle, Link2, Wallet, Shield, User, HelpCircle } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -26,6 +26,7 @@ const allMenuItems = [
   { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
   { title: "Webhooks", url: "/webhooks", icon: Webhook },
   { title: "Acerto Certo", url: "/settings/acerto-certo-integration", icon: Link2 },
+  { title: "Sobre Créditos", url: "/sobre-creditos", icon: HelpCircle },
 ];
 
 export function AppSidebar() {
