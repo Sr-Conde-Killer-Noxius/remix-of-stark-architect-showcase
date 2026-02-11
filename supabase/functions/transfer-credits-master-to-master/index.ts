@@ -37,14 +37,15 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user: requestingUser }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !requestingUser) {
+      console.error('Auth error:', userError?.message || 'No user found');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const requestingUserId = claimsData.claims.sub;
+    const requestingUserId = requestingUser.id;
 
     const { data: requestingRoleData } = await supabaseAdmin
       .from('user_roles')
