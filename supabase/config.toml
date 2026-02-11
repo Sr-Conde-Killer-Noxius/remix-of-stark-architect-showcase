@@ -22,7 +22,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.get-master-user-details]
-verify_jwt = true
+verify_jwt = false
 
 [functions.check-expired-credits]
 verify_jwt = false

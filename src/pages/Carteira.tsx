@@ -271,55 +271,16 @@ export default function Carteira() {
     try {
       setLoadingMasterUsers(true);
       
-      if (userRole === 'admin') {
-        // Admin: use edge function to get all masters/resellers
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) throw new Error("Não autenticado");
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Não autenticado");
 
-        const { data: result, error } = await supabase.functions.invoke(
-          "get-master-user-details",
-          { headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` } }
-        );
-        if (error) throw error;
-        if (result?.error) throw new Error(result.error);
-        setMasterUsersWithDetails(result.masters || []);
-      } else {
-        // Master/Reseller: load subordinates (created_by = user.id) with master/reseller role
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, created_at')
-          .eq('created_by', user.id)
-          .order('full_name', { ascending: true });
-
-        if (profilesError) throw profilesError;
-
-        const details: MasterUserDetail[] = [];
-        for (const profile of profiles || []) {
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', profile.user_id)
-            .maybeSingle();
-
-          if (roleData?.role === 'master' || roleData?.role === 'reseller') {
-            const { data: creditData } = await supabase
-              .from('user_credits')
-              .select('balance')
-              .eq('user_id', profile.user_id)
-              .maybeSingle();
-
-            details.push({
-              user_id: profile.user_id,
-              full_name: profile.full_name || 'N/A',
-              credit_balance: creditData?.balance || 0,
-              last_login_at: null,
-              role: roleData.role,
-              created_at: profile.created_at,
-            });
-          }
-        }
-        setMasterUsersWithDetails(details);
-      }
+      const { data: result, error } = await supabase.functions.invoke(
+        "get-master-user-details",
+        { headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` } }
+      );
+      if (error) throw error;
+      if (result?.error) throw new Error(result.error);
+      setMasterUsersWithDetails(result.masters || []);
     } catch (error: any) {
       console.error('Error loading users with details:', error);
       toast({

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -21,37 +21,30 @@ serve(async (req) => {
     }
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false }
     });
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response('Unauthorized: No Authorization header', { status: 401, headers: corsHeaders });
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    const token = authHeader.replace('Bearer ', '');
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      },
-      global: {
-        headers: {
-          Authorization: authHeader
-        }
-      }
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user: requestingUser } } = await supabaseClient.auth.getUser(token);
-    
-    if (!requestingUser) {
-      return new Response('Unauthorized: Invalid token', { status: 401, headers: corsHeaders });
+    const { data: { user: requestingUser }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !requestingUser) {
+      console.error('Auth error:', userError?.message || 'No user');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Check if requesting user is admin
+    // Check requesting user's role
     const { data: requestingRoleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -59,33 +52,60 @@ serve(async (req) => {
       .maybeSingle();
 
     if (roleError) {
-      console.error('Error fetching requesting user role:', roleError);
-      return new Response('Internal Server Error: Could not verify user role', { status: 500, headers: corsHeaders });
+      console.error('Error fetching role:', roleError);
+      return new Response(JSON.stringify({ error: 'Could not verify user role' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    if (requestingRoleData?.role !== 'admin') {
-      return new Response('Forbidden: Only admin users can access this resource', { status: 403, headers: corsHeaders });
+    const requestingRole = requestingRoleData?.role;
+    if (requestingRole !== 'admin' && requestingRole !== 'master' && requestingRole !== 'reseller') {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Fetch all profiles
-    const { data: profiles, error: profilesError } = await supabaseAdmin
+    // Fetch profiles based on role
+    let profilesQuery = supabaseAdmin
       .from('profiles')
       .select('user_id, full_name, created_at');
+
+    if (requestingRole !== 'admin') {
+      // Master/Reseller: only see users they created
+      profilesQuery = profilesQuery.eq('created_by', requestingUser.id);
+    }
+
+    const { data: profiles, error: profilesError } = await profilesQuery;
     if (profilesError) throw profilesError;
 
     // Fetch all user roles
+    const profileUserIds = (profiles || []).map(p => p.user_id);
+    if (profileUserIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, masters: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     const { data: userRoles, error: userRolesError } = await supabaseAdmin
       .from('user_roles')
-      .select('user_id, role');
+      .select('user_id, role')
+      .in('user_id', profileUserIds);
     if (userRolesError) throw userRolesError;
     const roleMap = new Map(userRoles?.map(ur => [ur.user_id, ur.role]));
 
     // Filter for master AND reseller users
-    const masterResellerUserIds = profiles
-      .filter(p => roleMap.get(p.user_id) === 'master' || roleMap.get(p.user_id) === 'reseller')
-      .map(p => p.user_id);
+    const masterResellerUserIds = profileUserIds
+      .filter(uid => roleMap.get(uid) === 'master' || roleMap.get(uid) === 'reseller');
 
-    // Fetch all user credits for master/reseller users
+    if (masterResellerUserIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, masters: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // Fetch credits
     const { data: userCredits, error: userCreditsError } = await supabaseAdmin
       .from('user_credits')
       .select('user_id, balance')
@@ -98,7 +118,7 @@ serve(async (req) => {
     if (authUsersError) throw authUsersError;
     const authUserMap = new Map(authUsersData.users.map(u => [u.id, u.last_sign_in_at]));
 
-    const userDetails = profiles
+    const userDetails = (profiles || [])
       .filter(p => masterResellerUserIds.includes(p.user_id))
       .map(p => ({
         user_id: p.user_id,
@@ -111,21 +131,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, masters: userDetails }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
     console.error('Error in get-master-user-details function:', error);
-    const errorMessage = error instanceof Response ? await error.text() : (error instanceof Error ? error.message : 'An unknown error occurred');
-    const status = error instanceof Response ? error.status : 500;
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: status,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
