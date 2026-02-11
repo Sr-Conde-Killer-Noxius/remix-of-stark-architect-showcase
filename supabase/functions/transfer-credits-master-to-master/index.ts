@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -21,40 +21,35 @@ serve(async (req) => {
     }
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+      auth: { autoRefreshToken: false, persistSession: false }
     });
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const token = authHeader.replace('Bearer ', '');
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      },
-      global: {
-        headers: {
-          Authorization: authHeader
-        }
-      }
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user: requestingUser } } = await supabaseClient.auth.getUser(token);
-    
-    if (!requestingUser) {
-      throw new Error('Unauthorized');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
+
+    const requestingUserId = claimsData.claims.sub;
 
     const { data: requestingRoleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', requestingUser.id)
+      .eq('user_id', requestingUserId)
       .maybeSingle();
 
     const requestingRole = requestingRoleData?.role;
@@ -75,7 +70,7 @@ serve(async (req) => {
     const { data: initiatorCredits, error: initiatorCreditsError } = await supabaseAdmin
       .from('user_credits')
       .select('balance')
-      .eq('user_id', requestingUser.id)
+      .eq('user_id', requestingUserId)
       .maybeSingle();
 
     if (initiatorCreditsError) throw initiatorCreditsError;
@@ -91,12 +86,10 @@ serve(async (req) => {
     const currentTargetBalance = targetCredits?.balance || 0;
 
     if (isRemoval) {
-      // Removing credits from target → credits return to initiator
       if (currentTargetBalance < absAmount) {
         throw new Error(`O usuário alvo tem apenas ${currentTargetBalance} créditos. Não é possível remover ${absAmount}.`);
       }
     } else {
-      // Adding credits to target → deduct from initiator
       if (currentInitiatorBalance < absAmount) {
         throw new Error(`Créditos insuficientes. Saldo atual: ${currentInitiatorBalance}`);
       }
@@ -107,11 +100,9 @@ serve(async (req) => {
     let newTargetBalance: number;
 
     if (isRemoval) {
-      // Remove from target, return to initiator
       newTargetBalance = currentTargetBalance - absAmount;
       newInitiatorBalance = currentInitiatorBalance + absAmount;
     } else {
-      // Add to target, deduct from initiator
       newInitiatorBalance = currentInitiatorBalance - absAmount;
       newTargetBalance = currentTargetBalance + absAmount;
     }
@@ -120,7 +111,7 @@ serve(async (req) => {
     const { error: updateInitiatorError } = await supabaseAdmin
       .from('user_credits')
       .upsert({
-        user_id: requestingUser.id,
+        user_id: requestingUserId,
         balance: newInitiatorBalance,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
@@ -137,14 +128,28 @@ serve(async (req) => {
 
     if (updateTargetError) throw updateTargetError;
 
-    // Get requesting user's profile for the description
+    // Get profiles for descriptions
     const { data: requestingProfile } = await supabaseAdmin
       .from('profiles')
       .select('full_name')
-      .eq('user_id', requestingUser.id)
+      .eq('user_id', requestingUserId)
       .maybeSingle();
 
-    const requestingUserName = requestingProfile?.full_name || requestingUser.id;
+    const { data: targetProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', targetUserId)
+      .maybeSingle();
+
+    const { data: targetRoleData } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', targetUserId)
+      .maybeSingle();
+
+    const requestingUserName = requestingProfile?.full_name || requestingUserId;
+    const targetUserName = targetProfile?.full_name || targetUserId;
+    const targetRole = targetRoleData?.role;
     const targetRoleLabel = targetRole === 'master' ? 'Master' : 'Revenda';
     const requestingRoleLabel = requestingRole === 'master' ? 'Master' : 'Revenda';
 
@@ -159,29 +164,29 @@ serve(async (req) => {
           amount: -absAmount,
           balance_after: newTargetBalance,
           description: `Créditos removidos por ${requestingRoleLabel} ${requestingUserName}`,
-          related_user_id: requestingUser.id,
-          performed_by: requestingUser.id
+          related_user_id: requestingUserId,
+          performed_by: requestingUserId
         },
         {
-          user_id: requestingUser.id,
+          user_id: requestingUserId,
           transaction_type: 'credit_added',
           amount: absAmount,
           balance_after: newInitiatorBalance,
-          description: `Créditos devolvidos de ${targetRoleLabel} ${targetProfile.full_name || targetUserId}`,
+          description: `Créditos devolvidos de ${targetRoleLabel} ${targetUserName}`,
           related_user_id: targetUserId,
-          performed_by: requestingUser.id
+          performed_by: requestingUserId
         }
       ];
     } else {
       transactionsToInsert = [
         {
-          user_id: requestingUser.id,
+          user_id: requestingUserId,
           transaction_type: 'credit_spent',
           amount: -absAmount,
           balance_after: newInitiatorBalance,
-          description: `Transferência para ${targetRoleLabel} ${targetProfile.full_name || targetUserId}`,
+          description: `Transferência para ${targetRoleLabel} ${targetUserName}`,
           related_user_id: targetUserId,
-          performed_by: requestingUser.id
+          performed_by: requestingUserId
         },
         {
           user_id: targetUserId,
@@ -189,8 +194,8 @@ serve(async (req) => {
           amount: absAmount,
           balance_after: newTargetBalance,
           description: `Recebido de ${requestingRoleLabel} ${requestingUserName}`,
-          related_user_id: requestingUser.id,
-          performed_by: requestingUser.id
+          related_user_id: requestingUserId,
+          performed_by: requestingUserId
         }
       ];
     }
@@ -202,15 +207,15 @@ serve(async (req) => {
     if (transactionError) throw transactionError;
 
     const action = isRemoval ? 'removidos de' : 'transferidos para';
-    console.log(`Credits ${action} ${targetUserId} by ${requestingUser.id}. Amount: ${absAmount}`);
+    console.log(`Credits ${action} ${targetUserId} by ${requestingUserId}. Amount: ${absAmount}`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: `${absAmount} crédito(s) ${action} ${targetProfile.full_name || targetUserId} com sucesso.`,
+        message: `${absAmount} crédito(s) ${action} ${targetUserName} com sucesso.`,
         newInitiatorBalance,
         newTargetBalance,
-        targetUser: targetProfile.full_name || targetUserId
+        targetUser: targetUserName
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

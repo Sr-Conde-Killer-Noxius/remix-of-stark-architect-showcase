@@ -16,7 +16,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.transfer-credits-master-to-master]
-verify_jwt = true
+verify_jwt = false
 
 [functions.renew-reseller-credit]
 verify_jwt = true
