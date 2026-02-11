@@ -32,12 +32,9 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-      global: { headers: { Authorization: authHeader } }
-    });
 
-    const { data: { user: requestingUser }, error: userError } = await supabaseClient.auth.getUser();
+    // Use admin client to validate the token - more reliable in edge functions
+    const { data: { user: requestingUser }, error: userError } = await supabaseAdmin.auth.getUser(token);
     if (userError || !requestingUser) {
       console.error('Auth error:', userError?.message || 'No user found');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
