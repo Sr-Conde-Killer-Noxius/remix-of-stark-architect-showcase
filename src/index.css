@@ -1,77 +1,82 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Space+Mono&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Design system – Tech / Glassmorphism / Neon */
 
 @layer base {
   :root {
-    --background: 215 27.8% 10%;
-    --foreground: 210 20% 98%;
+    /* Deep dark background with subtle blue undertone */
+    --background: 220 20% 7%;
+    --foreground: 210 20% 95%;
 
-    --card: 215 27.8% 16.9%;
-    --card-foreground: 210 20% 98%;
+    /* Cards: translucent glass */
+    --card: 220 20% 12%;
+    --card-foreground: 210 20% 95%;
 
-    --popover: 215 27.8% 16.9%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 20% 95%;
 
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 20% 98%;
+    /* Neon electric blue primary */
+    --primary: 210 100% 56%;
+    --primary-foreground: 220 20% 7%;
 
-    --secondary: 215 20% 25%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 220 16% 18%;
+    --secondary-foreground: 210 20% 90%;
 
-    --muted: 215 20% 20%;
-    --muted-foreground: 215 15% 65%;
+    --muted: 220 14% 16%;
+    --muted-foreground: 215 12% 55%;
 
-    --accent: 217.2 91.2% 59.8%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 210 100% 56%;
+    --accent-foreground: 220 20% 7%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 142.1 76.2% 36.3%;
-    --success-foreground: 210 20% 98%;
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 215 27.8% 10%;
+    --warning-foreground: 220 20% 7%;
 
-    --border: 215 20% 25%;
-    --input: 215 20% 25%;
-    --ring: 217.2 91.2% 59.8%;
+    --border: 220 14% 18%;
+    --input: 220 14% 18%;
+    --ring: 210 100% 56%;
 
-    --radius: 1.75rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 215 27.8% 16.9%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 217.2 91.2% 59.8%;
-    --sidebar-primary-foreground: 210 20% 98%;
-    --sidebar-accent: 215 20% 25%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 215 20% 25%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --font-sans: "Source Sans Pro", ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-    --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
-    --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-    --shadow-sm: 0px 1px 6.25px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow: 0px 1px 12.5px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow-md: 0px 1px 18.75px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow-lg: 0px 1px 31.25px 0px hsla(0, 0%, 0%, 0.15);
+    /* Sidebar */
+    --sidebar-background: 220 22% 9%;
+    --sidebar-foreground: 210 15% 75%;
+    --sidebar-primary: 210 100% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 16% 15%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 14% 14%;
+    --sidebar-ring: 210 100% 56%;
+
+    /* Fonts */
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Shadows with blue glow */
+    --shadow-sm: 0 1px 3px 0 hsla(210, 100%, 56%, 0.06);
+    --shadow: 0 2px 8px 0 hsla(210, 100%, 56%, 0.08);
+    --shadow-md: 0 4px 16px 0 hsla(210, 100%, 56%, 0.1);
+    --shadow-lg: 0 8px 32px 0 hsla(210, 100%, 56%, 0.12);
+
+    /* Neon glow tokens */
+    --neon-glow: 0 0 20px hsla(210, 100%, 56%, 0.3);
+    --neon-glow-sm: 0 0 10px hsla(210, 100%, 56%, 0.2);
+    --neon-glow-lg: 0 0 40px hsla(210, 100%, 56%, 0.25);
   }
+
   .dark {
-    --font-sans: "Source Sans Pro", ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-    --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
-    --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-    --radius: 1.75rem;
-    --shadow-sm: 0px 1px 6.25px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow: 0px 1px 12.5px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow-md: 0px 1px 18.75px 0px hsla(0, 0%, 0%, 0.15);
-    --shadow-lg: 0px 1px 31.25px 0px hsla(0, 0%, 0%, 0.15);
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --radius: 0.75rem;
   }
 }
 
@@ -81,9 +86,59 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Glassmorphism utility classes */
+@layer utilities {
+  .glass {
+    background: hsla(220, 20%, 12%, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsla(210, 20%, 30%, 0.15);
+  }
+
+  .glass-strong {
+    background: hsla(220, 20%, 12%, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsla(210, 20%, 30%, 0.2);
+  }
+
+  .glass-subtle {
+    background: hsla(220, 20%, 12%, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsla(210, 20%, 30%, 0.1);
+  }
+
+  .neon-border {
+    border: 1px solid hsla(210, 100%, 56%, 0.3);
+    box-shadow: var(--neon-glow-sm);
+  }
+
+  .neon-glow {
+    box-shadow: var(--neon-glow);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(210, 100%, 56%), hsl(195, 100%, 50%));
+  }
+
+  .gradient-dark {
+    background: linear-gradient(180deg, hsl(220, 20%, 9%), hsl(220, 20%, 5%));
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(210, 100%, 56%), hsl(195, 100%, 60%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+/* Lovable badge hide */
 [href*="lovable.dev"],
 iframe[src*="lovable.dev"],
 div[style*="Edit with Lovable"],
@@ -91,13 +146,13 @@ div[style*="Edit with Lovable"],
 img[src*="lovable.dev"],
 [class*="lovable"],
 [id*="lovable"] {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    position: absolute !important;
-    z-index: -9999 !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  z-index: -9999 !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
