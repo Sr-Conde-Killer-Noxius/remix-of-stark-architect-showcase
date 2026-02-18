@@ -73,24 +73,46 @@ export default {
   		},
   		keyframes: {
   			'accordion-down': {
-  				from: { height: '0' },
-  				to: { height: 'var(--radix-accordion-content-height)' }
+  				from: {
+  					height: '0'
+  				},
+  				to: {
+  					height: 'var(--radix-accordion-content-height)'
+  				}
   			},
   			'accordion-up': {
-  				from: { height: 'var(--radix-accordion-content-height)' },
-  				to: { height: '0' }
+  				from: {
+  					height: 'var(--radix-accordion-content-height)'
+  				},
+  				to: {
+  					height: '0'
+  				}
   			},
   			'fade-in': {
-  				'0%': { opacity: '0', transform: 'translateY(8px)' },
-  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  				'0%': {
+  					opacity: '0',
+  					transform: 'translateY(8px)'
+  				},
+  				'100%': {
+  					opacity: '1',
+  					transform: 'translateY(0)'
+  				}
   			},
   			'glow-pulse': {
-  				'0%, 100%': { boxShadow: '0 0 15px hsla(210, 100%, 56%, 0.2)' },
-  				'50%': { boxShadow: '0 0 25px hsla(210, 100%, 56%, 0.4)' }
+  				'0%, 100%': {
+  					boxShadow: '0 0 15px hsla(210, 100%, 56%, 0.2)'
+  				},
+  				'50%': {
+  					boxShadow: '0 0 25px hsla(210, 100%, 56%, 0.4)'
+  				}
   			},
-  			'shimmer': {
-  				'0%': { backgroundPosition: '-200% 0' },
-  				'100%': { backgroundPosition: '200% 0' }
+  			shimmer: {
+  				'0%': {
+  					backgroundPosition: '-200% 0'
+  				},
+  				'100%': {
+  					backgroundPosition: '200% 0'
+  				}
   			}
   		},
   		animation: {
@@ -98,13 +120,20 @@ export default {
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'fade-in': 'fade-in 0.4s ease-out',
   			'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
-  			'shimmer': 'shimmer 2s linear infinite'
+  			shimmer: 'shimmer 2s linear infinite'
   		},
   		fontFamily: {
   			sans: [
-  				'Inter',
+  				'Space Grotesk',
   				'ui-sans-serif',
   				'system-ui',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'Segoe UI',
+  				'Roboto',
+  				'Helvetica Neue',
+  				'Arial',
+  				'Noto Sans',
   				'sans-serif'
   			],
   			mono: [
@@ -112,8 +141,30 @@ export default {
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
+  				'Monaco',
+  				'Consolas',
+  				'Liberation Mono',
+  				'Courier New',
   				'monospace'
+  			],
+  			serif: [
+  				'Lora',
+  				'ui-serif',
+  				'Georgia',
+  				'Cambria',
+  				'Times New Roman',
+  				'Times',
+  				'serif'
   			]
+  		},
+  		boxShadow: {
+  			'2xs': 'var(--shadow-2xs)',
+  			xs: 'var(--shadow-xs)',
+  			sm: 'var(--shadow-sm)',
+  			md: 'var(--shadow-md)',
+  			lg: 'var(--shadow-lg)',
+  			xl: 'var(--shadow-xl)',
+  			'2xl': 'var(--shadow-2xl)'
   		}
   	}
   },
