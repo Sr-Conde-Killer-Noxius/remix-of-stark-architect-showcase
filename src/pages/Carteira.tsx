@@ -268,7 +268,7 @@ export default function Carteira() {
     ];
     if (userRole === 'admin') {
       cols.push({
-        key: 'actions', header: 'Ações', accessor: () => '', sortable: false, filterable: false, align: 'right',
+        key: 'actions', header: 'Ações', accessor: r => r.is_unlimited ? 'Ilimitado' : 'Limitado', filterType: 'select', filterOptions: [{ label: 'Ilimitado', value: 'ilimitado' }, { label: 'Limitado', value: 'limitado' }], align: 'right',
         render: r => (
           <Button variant={r.is_unlimited ? 'default' : 'outline'} size="sm" onClick={() => handleToggleUnlimited(r.user_id, !r.is_unlimited)} disabled={submitting} title={r.is_unlimited ? 'Remover ilimitado' : 'Definir como ilimitado'}>
             <Infinity className="h-4 w-4" />
