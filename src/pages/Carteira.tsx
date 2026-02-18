@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, ShoppingCart, Infinity as InfinityIcon } from "lucide-react";
 import { format } from "date-fns";
 import { BuyCreditsDialog } from "@/components/BuyCreditsDialog";
-import { FilterableSortableTable, ColumnDef } from "@/components/FilterableSortableTable";
+import { FilterableSortableTable, type ColumnDef } from "@/components/FilterableSortableTable";
 
 interface Transaction {
   id: string;
