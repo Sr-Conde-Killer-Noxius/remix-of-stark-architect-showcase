@@ -185,7 +185,6 @@ export default function Revendas() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Admin sees all, Master sees only their created users
       let profilesQuery = supabase
         .from("profiles")
         .select("*, planos(id, nome, valor)")
@@ -196,42 +195,46 @@ export default function Revendas() {
       }
 
       const { data: profiles, error: profilesError } = await profilesQuery;
-
       if (profilesError) throw profilesError;
+      if (!profiles?.length) { setResellers([]); return; }
 
-      const resellersWithRoles: ResellerWithRole[] = [];
-      
-      for (const profile of profiles || []) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", profile.user_id)
-          .maybeSingle();
-        
-        const role = roleData?.role || "cliente";
-        
-        // Filter to only show master and reseller roles (not cliente or admin)
-        if (role === 'master' || role === 'reseller') {
-          let creatorName = null;
-          if (profile.created_by && profile.created_by !== profile.user_id) {
-            const { data: creatorData } = await supabase
-              .from("profiles")
-              .select("full_name")
-              .eq("user_id", profile.created_by)
-              .maybeSingle();
-            
-            if (creatorData) {
-              creatorName = creatorData.full_name;
-            }
-          }
-          
-          resellersWithRoles.push({
+      // Batch fetch all roles in one query
+      const userIds = profiles.map(p => p.user_id);
+      const { data: rolesData } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", userIds);
+      const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]) || []);
+
+      // Batch fetch all creator names in one query
+      const creatorIds = [...new Set(profiles
+        .filter(p => p.created_by && p.created_by !== p.user_id)
+        .map(p => p.created_by!))];
+      const creatorMap = new Map<string, string>();
+      if (creatorIds.length > 0) {
+        const { data: creatorsData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", creatorIds);
+        creatorsData?.forEach(c => creatorMap.set(c.user_id, c.full_name || "N/A"));
+      }
+
+      const resellersWithRoles: ResellerWithRole[] = profiles
+        .filter(profile => {
+          const role = roleMap.get(profile.user_id) || "cliente";
+          return role === 'master' || role === 'reseller';
+        })
+        .map(profile => {
+          const role = roleMap.get(profile.user_id) || "cliente";
+          const creatorName = profile.created_by && profile.created_by !== profile.user_id
+            ? creatorMap.get(profile.created_by) || null
+            : null;
+          return {
             ...profile,
             role,
             creator: creatorName ? [{ full_name: creatorName }] : null,
-          });
-        }
-      }
+          };
+        });
 
       setResellers(resellersWithRoles);
     } catch (error: any) {
@@ -250,32 +253,21 @@ export default function Revendas() {
     if (userRole !== 'admin') return;
 
     try {
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .order("full_name", { ascending: true });
+      const [{ data: profiles, error: profilesError }, { data: rolesData }] = await Promise.all([
+        supabase.from("profiles").select("user_id, full_name").order("full_name", { ascending: true }),
+        supabase.from("user_roles").select("user_id, role").in("role", ["admin", "master"]),
+      ]);
 
       if (profilesError) throw profilesError;
 
-      const creatorsWithRoles: PotentialCreator[] = [];
-      
-      for (const profile of profiles || []) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", profile.user_id)
-          .maybeSingle();
-        
-        const role = roleData?.role || "cliente";
-        
-        if (role === 'admin' || role === 'master') {
-          creatorsWithRoles.push({
-            user_id: profile.user_id,
-            full_name: profile.full_name || "N/A",
-            role,
-          });
-        }
-      }
+      const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]) || []);
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+
+      const creatorsWithRoles: PotentialCreator[] = (rolesData || []).map(r => ({
+        user_id: r.user_id,
+        full_name: profileMap.get(r.user_id) || "N/A",
+        role: r.role,
+      }));
 
       setPotentialCreators(creatorsWithRoles);
     } catch (error: any) {

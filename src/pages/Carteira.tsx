@@ -197,30 +197,25 @@ export default function Carteira() {
     if (userRole !== 'admin') return;
 
     try {
-      const { data: profiles, error: profilesError } = await supabase
+      // Fetch master/reseller roles first, then get their profiles
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['master', 'reseller']);
+
+      if (!rolesData?.length) { setMasterUsers([]); return; }
+
+      const userIds = rolesData.map(r => r.user_id);
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, full_name')
+        .in('user_id', userIds)
         .order('full_name', { ascending: true });
 
-      if (profilesError) throw profilesError;
-
-      const usersWithRoles: MasterUser[] = [];
-      
-      for (const profile of profiles || []) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', profile.user_id)
-          .maybeSingle();
-        
-        // Include both master and reseller users
-        if (roleData?.role === 'master' || roleData?.role === 'reseller') {
-          usersWithRoles.push({
-            user_id: profile.user_id,
-            full_name: profile.full_name || "N/A",
-          });
-        }
-      }
+      const usersWithRoles: MasterUser[] = (profiles || []).map(p => ({
+        user_id: p.user_id,
+        full_name: p.full_name || "N/A",
+      }));
 
       setMasterUsers(usersWithRoles);
     } catch (error: any) {
@@ -229,7 +224,6 @@ export default function Carteira() {
   };
 
   const loadMasterCreatedUsers = async () => {
-    // Both master and reseller can transfer credits to users they created
     if ((userRole !== 'master' && userRole !== 'reseller') || !user) return;
 
     try {
@@ -240,23 +234,21 @@ export default function Carteira() {
         .order('full_name', { ascending: true });
 
       if (profilesError) throw profilesError;
+      if (!profiles?.length) { setMasterCreatedUsers([]); return; }
 
-      const createdUsers: MasterUser[] = [];
-      for (const profile of profiles || []) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', profile.user_id)
-          .maybeSingle();
-        
-        // Include master and reseller users (those who can receive credits)
-        if (roleData?.role === 'master' || roleData?.role === 'reseller') {
-          createdUsers.push({
-            user_id: profile.user_id,
-            full_name: profile.full_name || "N/A",
-          });
-        }
-      }
+      const userIds = profiles.map(p => p.user_id);
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', userIds)
+        .in('role', ['master', 'reseller']);
+
+      const roleSet = new Set(rolesData?.map(r => r.user_id) || []);
+
+      const createdUsers: MasterUser[] = profiles
+        .filter(p => roleSet.has(p.user_id))
+        .map(p => ({ user_id: p.user_id, full_name: p.full_name || "N/A" }));
+
       setMasterCreatedUsers(createdUsers);
     } catch (error: any) {
       console.error('Error loading created users:', error);
