@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, RefreshCw, CalendarDays } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, RefreshCw, CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,9 @@ export default function Clientes() {
   const [creditExpiryDialogOpen, setCreditExpiryDialogOpen] = useState(false);
   const [selectedClienteForCreditExpiry, setSelectedClienteForCreditExpiry] = useState<ClienteWithRole | null>(null);
   const [newCreditExpiryDate, setNewCreditExpiryDate] = useState<Date | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const itemsPerPage = 15;
 
   const form = useForm<ClienteFormData>({
     resolver: zodResolver(clienteSchema),
@@ -828,6 +831,24 @@ export default function Clientes() {
     }
   };
 
+  const filteredClientes = useMemo(() => {
+    if (!searchTerm) return clientes;
+    const term = searchTerm.toLowerCase();
+    return clientes.filter(c =>
+      c.full_name?.toLowerCase().includes(term) ||
+      c.email?.toLowerCase().includes(term) ||
+      c.phone?.toLowerCase().includes(term)
+    );
+  }, [clientes, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClientes.length / itemsPerPage));
+  const paginatedClientes = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredClientes.slice(start, start + itemsPerPage);
+  }, [filteredClientes, currentPage, itemsPerPage]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader title="Gerenciar Clientes" />
@@ -850,6 +871,16 @@ export default function Clientes() {
               Novo Cliente
             </Button>
           </div>
+        </div>
+
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, e-mail ou telefone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 max-w-sm"
+          />
         </div>
 
         <div className="rounded-lg border bg-card">
@@ -878,14 +909,14 @@ export default function Clientes() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : clientes.length === 0 ? (
+                ) : filteredClientes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={userRole === 'admin' ? 10 : 9} className="text-center py-8 text-muted-foreground">
-                      Nenhum cliente encontrado
+                      {searchTerm ? "Nenhum cliente encontrado com esse filtro" : "Nenhum cliente encontrado"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  clientes.map((cliente) => (
+                  paginatedClientes.map((cliente) => (
                     <TableRow key={cliente.id}>
                       <TableCell className="font-medium whitespace-nowrap">
                         {cliente.full_name || "N/A"}
@@ -1015,6 +1046,38 @@ export default function Clientes() {
             </Table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {filteredClientes.length > itemsPerPage && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredClientes.length)} de {filteredClientes.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Create Test Dialog */}

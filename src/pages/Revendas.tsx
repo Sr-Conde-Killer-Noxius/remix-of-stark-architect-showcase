@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield, CalendarDays } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield, CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,9 @@ export default function Revendas() {
   const [creditExpiryDialogOpen, setCreditExpiryDialogOpen] = useState(false);
   const [selectedResellerForCreditExpiry, setSelectedResellerForCreditExpiry] = useState<ResellerWithRole | null>(null);
   const [newCreditExpiryDate, setNewCreditExpiryDate] = useState<Date | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const itemsPerPage = 15;
   const { toast } = useToast();
 
   const form = useForm<ResellerFormData>({
@@ -833,6 +836,25 @@ export default function Revendas() {
     }
   };
 
+  const filteredResellers = useMemo(() => {
+    if (!searchTerm) return resellers;
+    const term = searchTerm.toLowerCase();
+    return resellers.filter(r =>
+      r.full_name?.toLowerCase().includes(term) ||
+      r.email?.toLowerCase().includes(term) ||
+      r.phone?.toLowerCase().includes(term)
+    );
+  }, [resellers, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredResellers.length / itemsPerPage));
+  const paginatedResellers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredResellers.slice(start, start + itemsPerPage);
+  }, [filteredResellers, currentPage, itemsPerPage]);
+
+  // Reset page when search changes
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader title="Gerenciar Revendas" />
@@ -851,6 +873,16 @@ export default function Revendas() {
               Nova Revenda
             </Button>
           </div>
+        </div>
+
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, e-mail ou telefone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 max-w-sm"
+          />
         </div>
 
         <div className="rounded-lg border bg-card">
@@ -880,14 +912,14 @@ export default function Revendas() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : resellers.length === 0 ? (
+                ) : filteredResellers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={userRole === 'admin' ? 11 : 10} className="text-center py-8 text-muted-foreground">
-                      Nenhuma revenda encontrada
+                      {searchTerm ? "Nenhuma revenda encontrada com esse filtro" : "Nenhuma revenda encontrada"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  resellers.map((reseller) => (
+                  paginatedResellers.map((reseller) => (
                     <TableRow key={reseller.id}>
                       <TableCell className="font-medium whitespace-nowrap">
                         {reseller.full_name || "N/A"}
@@ -1048,6 +1080,38 @@ export default function Revendas() {
             </Table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {filteredResellers.length > itemsPerPage && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredResellers.length)} de {filteredResellers.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Próximo
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Create Dialog */}
