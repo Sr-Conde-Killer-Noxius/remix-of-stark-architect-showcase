@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, Loader2, Search, ArrowUpDown, Filter } from "lucide-react";
+import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, Loader2, Search, ArrowUpDown, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 
 interface CreditData {
@@ -81,6 +81,14 @@ export default function Carteira() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("full_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  
+  // Pagination state for all tables
+  const [usersPage, setUsersPage] = useState(1);
+  const [adminHistoryPage, setAdminHistoryPage] = useState(1);
+  const [masterHistoryPage, setMasterHistoryPage] = useState(1);
+  const [creditedPage, setCreditedPage] = useState(1);
+  const [spentPage, setSpentPage] = useState(1);
+  const pageSize = 15;
 
   const loadCreditBalance = async () => {
     if (!user) return;
@@ -527,6 +535,61 @@ export default function Carteira() {
     });
   }, [masterUsersWithDetails, searchQuery, roleFilter, sortField, sortDirection]);
 
+  // Paginated data for each table
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * pageSize;
+    return filteredAndSortedUsers.slice(start, start + pageSize);
+  }, [filteredAndSortedUsers, usersPage]);
+  const usersTotalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / pageSize));
+
+  const paginatedManagedHistory = useMemo(() => {
+    const start = (adminHistoryPage - 1) * pageSize;
+    return managedCreditsHistory.slice(start, start + pageSize);
+  }, [managedCreditsHistory, adminHistoryPage]);
+  const adminHistoryTotalPages = Math.max(1, Math.ceil(managedCreditsHistory.length / pageSize));
+
+  const paginatedMasterTransfers = useMemo(() => {
+    const start = (masterHistoryPage - 1) * pageSize;
+    return masterToMasterTransactions.slice(start, start + pageSize);
+  }, [masterToMasterTransactions, masterHistoryPage]);
+  const masterHistoryTotalPages = Math.max(1, Math.ceil(masterToMasterTransactions.length / pageSize));
+
+  const myCreditedTransactions = useMemo(() => creditedTransactions.filter(t => t.user_id === user?.id), [creditedTransactions, user]);
+  const paginatedCredited = useMemo(() => {
+    const start = (creditedPage - 1) * pageSize;
+    return myCreditedTransactions.slice(start, start + pageSize);
+  }, [myCreditedTransactions, creditedPage]);
+  const creditedTotalPages = Math.max(1, Math.ceil(myCreditedTransactions.length / pageSize));
+
+  const paginatedSpent = useMemo(() => {
+    const start = (spentPage - 1) * pageSize;
+    return spentTransactions.slice(start, start + pageSize);
+  }, [spentTransactions, spentPage]);
+  const spentTotalPages = Math.max(1, Math.ceil(spentTransactions.length / pageSize));
+
+  // Reset pages when search changes
+  useEffect(() => { setUsersPage(1); }, [searchQuery, roleFilter]);
+
+  const PaginationControls = ({ current, total, onChange, count, totalCount }: { current: number; total: number; onChange: (p: number) => void; count: number; totalCount: number }) => {
+    if (totalCount <= pageSize) return null;
+    return (
+      <div className="flex items-center justify-between mt-3">
+        <p className="text-sm text-muted-foreground">
+          {((current - 1) * pageSize) + 1}-{Math.min(current * pageSize, totalCount)} de {totalCount}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => onChange(Math.max(1, current - 1))} disabled={current === 1}>
+            <ChevronLeft className="h-4 w-4" /> Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">{current} / {total}</span>
+          <Button variant="outline" size="sm" onClick={() => onChange(Math.min(total, current + 1))} disabled={current === total}>
+            Próximo <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader title="Carteira de Créditos" />
@@ -676,7 +739,7 @@ export default function Carteira() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredAndSortedUsers.map((user) => (
+                      paginatedUsers.map((user) => (
                         <TableRow key={user.user_id}>
                           <TableCell className="font-medium whitespace-nowrap">
                             {user.full_name}
@@ -708,9 +771,11 @@ export default function Carteira() {
                 </Table>
               </div>
               
+              <PaginationControls current={usersPage} total={usersTotalPages} onChange={setUsersPage} count={paginatedUsers.length} totalCount={filteredAndSortedUsers.length} />
+              
               {/* Results count */}
-              {!loadingMasterUsers && (
-                <p className="text-sm text-muted-foreground">
+              {!loadingMasterUsers && filteredAndSortedUsers.length <= pageSize && (
+                <p className="text-sm text-muted-foreground mt-3">
                   Exibindo {filteredAndSortedUsers.length} de {masterUsersWithDetails.length} usuários
                 </p>
               )}
@@ -758,7 +823,7 @@ export default function Carteira() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      managedCreditsHistory.map((transaction) => {
+                      paginatedManagedHistory.map((transaction) => {
                         const isAddition = transaction.amount > 0;
                         const targetUserName = transaction.master_profile?.full_name || transaction.user_id;
                         
@@ -795,6 +860,7 @@ export default function Carteira() {
                   </TableBody>
                 </Table>
               </div>
+              <PaginationControls current={adminHistoryPage} total={adminHistoryTotalPages} onChange={setAdminHistoryPage} count={paginatedManagedHistory.length} totalCount={managedCreditsHistory.length} />
             </CardContent>
           </Card>
         )}
@@ -839,7 +905,7 @@ export default function Carteira() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      masterToMasterTransactions.map((transaction) => (
+                      paginatedMasterTransfers.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
@@ -864,6 +930,7 @@ export default function Carteira() {
                   </TableBody>
                 </Table>
               </div>
+              <PaginationControls current={masterHistoryPage} total={masterHistoryTotalPages} onChange={setMasterHistoryPage} count={paginatedMasterTransfers.length} totalCount={masterToMasterTransactions.length} />
             </CardContent>
           </Card>
         )}
@@ -900,14 +967,14 @@ export default function Carteira() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ) : creditedTransactions.filter(t => t.user_id === user?.id).length === 0 ? (
+                    ) : myCreditedTransactions.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                           Nenhum crédito adquirido ainda
                         </TableCell>
                       </TableRow>
                     ) : (
-                      creditedTransactions.filter(t => t.user_id === user?.id).map((transaction) => (
+                      paginatedCredited.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="whitespace-nowrap">
                             {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
@@ -929,6 +996,7 @@ export default function Carteira() {
                   </TableBody>
                 </Table>
               </div>
+              <PaginationControls current={creditedPage} total={creditedTotalPages} onChange={setCreditedPage} count={paginatedCredited.length} totalCount={myCreditedTransactions.length} />
             </CardContent>
           </Card>
         )}
@@ -974,7 +1042,7 @@ export default function Carteira() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    spentTransactions.map((transaction) => (
+                    paginatedSpent.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm')}
@@ -999,6 +1067,7 @@ export default function Carteira() {
                 </TableBody>
               </Table>
             </div>
+            <PaginationControls current={spentPage} total={spentTotalPages} onChange={setSpentPage} count={paginatedSpent.length} totalCount={spentTransactions.length} />
           </CardContent>
         </Card>
       </main>
