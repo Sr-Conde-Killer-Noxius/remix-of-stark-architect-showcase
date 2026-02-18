@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield, CalendarDays } from "lucide-react";
+import { Plus, Trash2, Edit, MoreVertical, Bell, ListChecks, Check, UserCog, RefreshCw, Shield, CalendarDays, Users, TrendingUp, AlertCircle, Snowflake, Crown } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -128,6 +129,7 @@ export default function Revendas() {
   const [creditExpiryDialogOpen, setCreditExpiryDialogOpen] = useState(false);
   const [selectedResellerForCreditExpiry, setSelectedResellerForCreditExpiry] = useState<ResellerWithRole | null>(null);
   const [newCreditExpiryDate, setNewCreditExpiryDate] = useState<Date | undefined>(undefined);
+  const [cardFilter, setCardFilter] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -924,6 +926,37 @@ export default function Revendas() {
     return cols;
   }, [userRole, potentialCreators, changingCreator, updatingStatus, updatingRole, canRenewCredit]);
 
+  const stats = useMemo(() => {
+    const total = resellers.length;
+    const masters = resellers.filter(r => r.role === 'master').length;
+    const revendas = resellers.filter(r => r.role === 'reseller').length;
+    const ativos = resellers.filter(r => r.status === 'active').length;
+    const inativos = resellers.filter(r => r.status === 'inactive').length;
+    const suspensos = resellers.filter(r => r.status === 'suspended').length;
+    return { total, masters, revendas, ativos, inativos, suspensos };
+  }, [resellers]);
+
+  const filteredByCard = useMemo(() => {
+    if (!cardFilter) return resellers;
+    switch (cardFilter) {
+      case 'masters': return resellers.filter(r => r.role === 'master');
+      case 'revendas': return resellers.filter(r => r.role === 'reseller');
+      case 'ativos': return resellers.filter(r => r.status === 'active');
+      case 'inativos': return resellers.filter(r => r.status === 'inactive');
+      case 'suspensos': return resellers.filter(r => r.status === 'suspended');
+      default: return resellers;
+    }
+  }, [resellers, cardFilter]);
+
+  const filterCards = [
+    { key: null, label: 'Total de Revendas', value: stats.total, icon: Users, color: 'text-primary' },
+    { key: 'ativos', label: 'Ativos', value: stats.ativos, icon: TrendingUp, color: 'text-emerald-500' },
+    { key: 'inativos', label: 'Inativos', value: stats.inativos, icon: AlertCircle, color: 'text-red-500' },
+    { key: 'suspensos', label: 'Suspensos', value: stats.suspensos, icon: Snowflake, color: 'text-muted-foreground' },
+    { key: 'masters', label: 'Masters', value: stats.masters, icon: Crown, color: 'text-yellow-500' },
+    { key: 'revendas', label: 'Revendas', value: stats.revendas, icon: Users, color: 'text-cyan-500' },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader title="Gerenciar Revendas" />
@@ -944,8 +977,33 @@ export default function Revendas() {
           </div>
         </div>
 
+        {/* Filter Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          {filterCards.map(card => {
+            const isActive = cardFilter === card.key;
+            const Icon = card.icon;
+            return (
+              <Card
+                key={card.key ?? 'total'}
+                className={`p-4 cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+                  isActive
+                    ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_hsla(210,100%,56%,0.25)]'
+                    : 'hover:border-primary/40'
+                }`}
+                onClick={() => setCardFilter(isActive ? null : card.key)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-muted-foreground truncate">{card.label}</span>
+                  <Icon className={`h-4 w-4 ${card.color} shrink-0`} />
+                </div>
+                <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+              </Card>
+            );
+          })}
+        </div>
+
         <FilterableSortableTable
-          data={resellers}
+          data={filteredByCard}
           columns={resellerColumns}
           loading={loading}
           emptyMessage="Nenhuma revenda encontrada"
