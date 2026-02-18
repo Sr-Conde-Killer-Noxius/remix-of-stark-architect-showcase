@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, ShoppingCart, Infinity } from "lucide-react";
+import { Coins, Plus, TrendingDown, TrendingUp, Repeat2, UserCog, ShoppingCart, Infinity as InfinityIcon } from "lucide-react";
 import { format } from "date-fns";
 import { BuyCreditsDialog } from "@/components/BuyCreditsDialog";
 import { FilterableSortableTable, ColumnDef } from "@/components/FilterableSortableTable";
@@ -271,7 +271,7 @@ export default function Carteira() {
         key: 'actions', header: 'Ações', accessor: r => r.is_unlimited ? 'Ilimitado' : 'Limitado', filterType: 'select', filterOptions: [{ label: 'Ilimitado', value: 'ilimitado' }, { label: 'Limitado', value: 'limitado' }], align: 'right',
         render: r => (
           <Button variant={r.is_unlimited ? 'default' : 'outline'} size="sm" onClick={() => handleToggleUnlimited(r.user_id, !r.is_unlimited)} disabled={submitting} title={r.is_unlimited ? 'Remover ilimitado' : 'Definir como ilimitado'}>
-            <Infinity className="h-4 w-4" />
+            <InfinityIcon className="h-4 w-4" />
           </Button>
         ),
       });
