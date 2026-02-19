@@ -200,7 +200,7 @@ export default function Carteira() {
       if (userRole === 'admin') {
         ({ data: result, error } = await supabase.functions.invoke("manage-credits", { body: { targetUserId: selectedMasterId, amount: parseInt(creditAmount) }, headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` } }));
       } else if (userRole === 'master' || userRole === 'reseller') {
-        if (creditBalance === null || creditBalance < parseInt(creditAmount)) { toast({ title: "Créditos insuficientes", description: `Você tem ${creditBalance || 0} créditos, mas precisa de ${creditAmount}.`, variant: "destructive" }); setSubmitting(false); return; }
+        if (!isUnlimited && (creditBalance === null || creditBalance < parseInt(creditAmount))) { toast({ title: "Créditos insuficientes", description: `Você tem ${creditBalance || 0} créditos, mas precisa de ${creditAmount}.`, variant: "destructive" }); setSubmitting(false); return; }
         ({ data: result, error } = await supabase.functions.invoke("transfer-credits-master-to-master", { body: { targetUserId: selectedMasterId, amount: parseInt(creditAmount) }, headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` } }));
       } else { throw new Error("Ação não permitida para sua função."); }
       if (error) throw error;
