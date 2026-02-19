@@ -671,7 +671,7 @@ export default function Revendas() {
 
   const canRenewCredit = userRole === 'admin' || (userRole === 'master' && (userCredits || 0) >= 1);
 
-  const updateResellerRole = async (userId: string, newRole: 'master' | 'reseller' | 'cliente') => {
+  const updateResellerRole = async (userId: string, newRole: 'master' | 'reseller') => {
     try {
       setUpdatingRole(true);
 
@@ -884,13 +884,13 @@ export default function Revendas() {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger><ListChecks className="mr-2 h-4 w-4" /> Alterar Status</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="bg-popover">
-                  <DropdownMenuItem onClick={() => updateResellerStatus(r.user_id, 'active')} disabled={updatingStatus}>
+                  <DropdownMenuItem onSelect={() => updateResellerStatus(r.user_id, 'active')} disabled={updatingStatus}>
                     {r.status === 'active' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Ativo
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateResellerStatus(r.user_id, 'inactive')} disabled={updatingStatus}>
+                  <DropdownMenuItem onSelect={() => updateResellerStatus(r.user_id, 'inactive')} disabled={updatingStatus}>
                     {r.status === 'inactive' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Inativo
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateResellerStatus(r.user_id, 'suspended')} disabled={updatingStatus}>
+                  <DropdownMenuItem onSelect={() => updateResellerStatus(r.user_id, 'suspended')} disabled={updatingStatus}>
                     {r.status === 'suspended' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Suspenso
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
@@ -898,14 +898,11 @@ export default function Revendas() {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger><Shield className="mr-2 h-4 w-4" /> Alterar Nível</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="bg-popover">
-                  <DropdownMenuItem onClick={() => updateResellerRole(r.user_id, 'master')} disabled={updatingRole}>
+                  <DropdownMenuItem onSelect={() => updateResellerRole(r.user_id, 'master')} disabled={updatingRole}>
                     {r.role === 'master' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Master
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateResellerRole(r.user_id, 'reseller')} disabled={updatingRole}>
+                  <DropdownMenuItem onSelect={() => updateResellerRole(r.user_id, 'reseller')} disabled={updatingRole}>
                     {r.role === 'reseller' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Revenda
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateResellerRole(r.user_id, 'cliente')} disabled={updatingRole}>
-                    {r.role === 'cliente' ? <Check className="mr-2 h-4 w-4" /> : <span className="mr-6" />} Cliente
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
