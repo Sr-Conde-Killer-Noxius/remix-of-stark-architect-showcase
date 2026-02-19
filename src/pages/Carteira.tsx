@@ -262,7 +262,7 @@ export default function Carteira() {
     const cols: ColumnDef<MasterUserDetail>[] = [
       { key: 'full_name', header: 'Nome', accessor: r => r.full_name, render: r => <span className="font-medium">{r.full_name}</span> },
       { key: 'role', header: 'Tipo', accessor: r => r.role, filterType: 'select', filterOptions: [{ label: 'Master', value: 'master' }, { label: 'Revenda', value: 'reseller' }], render: r => <Badge variant={r.role === 'master' ? 'default' : 'secondary'}>{r.role === 'master' ? 'Master' : 'Revenda'}</Badge> },
-      { key: 'credit_balance', header: 'Créditos', accessor: r => r.is_unlimited ? Infinity : r.credit_balance, align: 'right', render: r => <Badge variant="outline" className="font-mono">{r.is_unlimited ? '∞ Ilimitado' : r.credit_balance}</Badge> },
+      { key: 'credit_balance', header: 'Créditos', accessor: r => r.is_unlimited ? Infinity : r.credit_balance, align: 'right', render: r => <Badge variant="outline" className="font-mono">{r.is_unlimited ? '∞' : r.credit_balance}</Badge> },
       { key: 'created_at', header: 'Data Criação', accessor: r => r.created_at || '', render: r => r.created_at ? format(new Date(r.created_at), 'dd/MM/yyyy') : 'N/A' },
       { key: 'last_login_at', header: 'Último Login', accessor: r => r.last_login_at || '', render: r => r.last_login_at ? format(new Date(r.last_login_at), 'dd/MM/yyyy HH:mm') : 'Nunca logou' },
     ];
@@ -345,7 +345,7 @@ export default function Carteira() {
                 {(userRole === 'admin' || isUnlimited) ? '∞' : creditBalance ?? 0}
               </span>
               <span className="text-lg sm:text-xl text-muted-foreground">
-                {(userRole === 'admin' || isUnlimited) ? 'Ilimitado' : 'créditos'}
+                {(userRole === 'admin' || isUnlimited) ? '∞' : 'créditos'}
               </span>
             </div>
             {(userRole === 'admin' || userRole === 'master' || userRole === 'reseller') && (

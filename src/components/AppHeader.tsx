@@ -52,7 +52,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
                 <Coins className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                 <span className="text-xs sm:text-sm font-medium text-foreground truncate">
                   {userRole === 'admin' || creditData?.is_unlimited
-                    ? 'Ilimitado' 
+                    ? '∞' 
                     : creditData?.balance ?? 0}
                 </span>
               </>
