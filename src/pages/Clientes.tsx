@@ -45,9 +45,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -983,38 +981,32 @@ export default function Clientes() {
                               <Trash2 className="mr-2 h-4 w-4" />
                               Excluir
                             </DropdownMenuItem>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                <ListChecks className="mr-2 h-4 w-4" />
-                                Mudar Status
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="bg-popover">
-                                <DropdownMenuItem 
-                                  onSelect={() => updateClienteStatus(cliente.user_id, 'active')}
-                                  disabled={updatingStatus}
-                                >
-                                  {cliente.status === 'active' && <Check className="mr-2 h-4 w-4" />}
-                                  {cliente.status !== 'active' && <span className="mr-6" />}
-                                  Ativo
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onSelect={() => updateClienteStatus(cliente.user_id, 'inactive')}
-                                  disabled={updatingStatus}
-                                >
-                                  {cliente.status === 'inactive' && <Check className="mr-2 h-4 w-4" />}
-                                  {cliente.status !== 'inactive' && <span className="mr-6" />}
-                                  Inativo
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onSelect={() => updateClienteStatus(cliente.user_id, 'suspended')}
-                                  disabled={updatingStatus}
-                                >
-                                  {cliente.status === 'suspended' && <Check className="mr-2 h-4 w-4" />}
-                                  {cliente.status !== 'suspended' && <span className="mr-6" />}
-                                  Suspenso
-                                </DropdownMenuItem>
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">Mudar Status</DropdownMenuLabel>
+                            <DropdownMenuItem 
+                              onSelect={() => updateClienteStatus(cliente.user_id, 'active')}
+                              disabled={updatingStatus}
+                            >
+                              {cliente.status === 'active' && <Check className="mr-2 h-4 w-4" />}
+                              {cliente.status !== 'active' && <span className="mr-6" />}
+                              Ativo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onSelect={() => updateClienteStatus(cliente.user_id, 'inactive')}
+                              disabled={updatingStatus}
+                            >
+                              {cliente.status === 'inactive' && <Check className="mr-2 h-4 w-4" />}
+                              {cliente.status !== 'inactive' && <span className="mr-6" />}
+                              Inativo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onSelect={() => updateClienteStatus(cliente.user_id, 'suspended')}
+                              disabled={updatingStatus}
+                            >
+                              {cliente.status === 'suspended' && <Check className="mr-2 h-4 w-4" />}
+                              {cliente.status !== 'suspended' && <span className="mr-6" />}
+                              Suspenso
+                            </DropdownMenuItem>
                             {userRole === 'admin' && (
                               <DropdownMenuItem onClick={() => handleOpenCreditExpiryDialog(cliente)}>
                                 <CalendarDays className="mr-2 h-4 w-4" />
