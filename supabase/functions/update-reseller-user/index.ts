@@ -174,8 +174,20 @@ serve(async (req) => {
 
       // Send webhook if status changed to inactive, suspended or active
       if (status !== undefined && currentStatus !== status && (status === 'inactive' || status === 'suspended' || status === 'active')) {
-        console.log(`Status changed for user ${userId} from ${currentStatus} to ${status}. Sending webhook...`);
+        console.log(`Status changed for user ${userId} from ${currentStatus} to ${status}. Checking role for webhook...`);
         
+        // Buscar role do usuario alvo para decidir se envia webhook Acerto Certo
+        const { data: targetRoleData } = await supabaseAdmin
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const targetUserRole = targetRoleData?.role;
+
+        // [18/02/2026] Integração Acerto Certo temporariamente restrita apenas a role 'cliente'.
+        // Demais roles (admin, master, reseller) não enviam webhook para Acerto Certo.
+        // Manter este condicional até segunda ordem.
+        if (targetUserRole === 'cliente') {
         const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
         
         console.log('🔑 ACERTO_CERTO_API_KEY presente?', !!acertoCertoApiKey);
@@ -256,7 +268,10 @@ serve(async (req) => {
             throw logError;
           }
         }
-        } // Fechar o else correspondente
+        } // Fechar o else correspondente (acertoCertoApiKey)
+        } else {
+          console.log(`[Acerto Certo] Target user role '${targetUserRole}' is not 'cliente', skipping Acerto Certo webhook.`);
+        }
       }
 
       // If creditExpiryDate was updated, trigger check-expired-credits function

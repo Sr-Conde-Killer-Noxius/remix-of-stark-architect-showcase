@@ -88,6 +88,18 @@ serve(async (req) => {
 
     // --- INÍCIO DA LÓGICA REORDENADA ---
 
+    // Buscar role do usuario alvo para decidir se envia webhook Acerto Certo
+    const { data: targetRoleData } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const targetUserRole = targetRoleData?.role;
+
+    // [18/02/2026] Integração Acerto Certo temporariamente restrita apenas a role 'cliente'.
+    // Demais roles (admin, master, reseller) não enviam webhook para Acerto Certo.
+    // Manter este condicional até segunda ordem.
+    if (targetUserRole === 'cliente') {
     // 1. Preparar payload do webhook e variáveis de log de histórico
     const acertoCertoApiKey = Deno.env.get('ACERTO_CERTO_API_KEY');
     
@@ -182,6 +194,9 @@ serve(async (req) => {
         console.error('❌ Critical: Failed to log webhook history even after initial attempt:', logError);
         throw logError;
       }
+    }
+    } else {
+      console.log(`[Acerto Certo] Target user role '${targetUserRole}' is not 'cliente', skipping Acerto Certo webhook.`);
     }
 
     // 4. Agora, exclua o usuário usando a API de administração

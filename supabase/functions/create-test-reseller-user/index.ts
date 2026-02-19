@@ -168,6 +168,10 @@ serve(async (req) => {
     // Test resellers do NOT consume credits
     console.log('Test reseller creation - skipping credit deduction');
 
+    // [18/02/2026] Integração Acerto Certo temporariamente restrita apenas a role 'cliente'.
+    // Demais roles (admin, master, reseller) não enviam webhook para Acerto Certo.
+    // Manter este condicional até segunda ordem.
+    if (resellerRole === 'cliente') {
     // Enviar webhook para Acerto Certo (não bloqueia a resposta de sucesso)
     (async () => {
       try {
@@ -292,6 +296,9 @@ serve(async (req) => {
         }
       }
     })();
+    } else {
+      console.log(`[Acerto Certo] Role '${resellerRole}' is not 'cliente', skipping Acerto Certo webhook.`);
+    }
 
     return new Response(
       JSON.stringify({ 
