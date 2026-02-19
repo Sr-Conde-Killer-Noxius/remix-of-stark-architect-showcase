@@ -990,7 +990,7 @@ export default function Clientes() {
                               </DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="bg-popover">
                                 <DropdownMenuItem 
-                                  onClick={() => updateClienteStatus(cliente.user_id, 'active')}
+                                  onSelect={() => updateClienteStatus(cliente.user_id, 'active')}
                                   disabled={updatingStatus}
                                 >
                                   {cliente.status === 'active' && <Check className="mr-2 h-4 w-4" />}
@@ -998,7 +998,7 @@ export default function Clientes() {
                                   Ativo
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => updateClienteStatus(cliente.user_id, 'inactive')}
+                                  onSelect={() => updateClienteStatus(cliente.user_id, 'inactive')}
                                   disabled={updatingStatus}
                                 >
                                   {cliente.status === 'inactive' && <Check className="mr-2 h-4 w-4" />}
@@ -1006,7 +1006,7 @@ export default function Clientes() {
                                   Inativo
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  onClick={() => updateClienteStatus(cliente.user_id, 'suspended')}
+                                  onSelect={() => updateClienteStatus(cliente.user_id, 'suspended')}
                                   disabled={updatingStatus}
                                 >
                                   {cliente.status === 'suspended' && <Check className="mr-2 h-4 w-4" />}
