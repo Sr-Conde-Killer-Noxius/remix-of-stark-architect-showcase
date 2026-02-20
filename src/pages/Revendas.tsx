@@ -852,15 +852,17 @@ export default function Revendas() {
       </Dialog>
       */}
 
-      <NotificationDialog
-        open={notificationDialogOpen}
-        onOpenChange={setNotificationDialogOpen}
-      recipient={selectedReseller ? {
-          id: selectedReseller.user_id,
-          name: selectedReseller.full_name,
-          phone: selectedReseller.phone,
-        } : null}
-      />
+      {selectedReseller && (
+        <NotificationDialog
+          open={notificationDialogOpen}
+          onOpenChange={setNotificationDialogOpen}
+          recipient={{
+            id: selectedReseller.user_id,
+            name: selectedReseller.full_name || "N/A",
+            phone: selectedReseller.phone,
+          }}
+        />
+      )}
     </div>
   );
 }
