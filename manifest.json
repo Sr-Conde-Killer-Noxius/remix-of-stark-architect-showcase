@@ -1,0 +1,40 @@
+{
+  "background_color": "#ffffff",
+  "description": "Automatize cobranças via WhatsApp com PIX integrado. R$35/mês, envios ilimitados, sem taxas extras. Reduza inadimplência e receba mais rápido. Teste grátis!",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Acerto Certo",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Acerto Certo",
+  "start_url": "https://www.acertocerto.site/dashboard",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://www.acertocerto.site/og-image.png",
+      "type": "image/jpeg",
+      "sizes": "1200x640",
+      "isSquare": false,
+      "isPng": true,
+      "isWebp": false,
+      "isJpg": true,
+      "width": 1200,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
+    },
+    {
+      "src": "https://www.acertocerto.site/favicon.ico",
+      "type": "image/x-icon",
+      "sizes": "1024x1024",
+      "isSquare": true,
+      "isPng": false,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 1024,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
+    }
+  ]
+}
